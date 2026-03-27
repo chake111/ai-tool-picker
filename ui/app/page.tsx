@@ -3,12 +3,8 @@
 import { useState } from "react"
 import { SearchInput } from "@/components/search-input"
 import { Card } from "@/components/ui/card"
-
-type RecommendItem = {
-  name: string
-  desc: string
-  reason: string
-}
+import { Button } from "@/components/ui/button"
+import type { RecommendItem } from "@/lib/recommend"
 
 export default function Home() {
   const [results, setResults] = useState<RecommendItem[]>([])
@@ -78,9 +74,18 @@ export default function Home() {
           <div className="w-full max-w-2xl flex flex-col gap-4">
             {results.map((item) => (
               <Card key={item.name} className="p-5 rounded-xl border border-border">
-                <h2 className="text-lg font-semibold text-foreground">{item.name}</h2>
-                <p className="mt-2 text-sm text-muted-foreground">{item.desc}</p>
-                <p className="mt-3 text-sm text-foreground">{item.reason}</p>
+                <div className="flex h-full flex-col">
+                  <h2 className="text-lg font-semibold text-foreground">{item.name}</h2>
+                  <p className="mt-2 text-sm text-muted-foreground">{item.desc}</p>
+                  <p className="mt-3 text-sm text-foreground">{item.reason}</p>
+                  <div className="mt-5">
+                    <Button asChild className="w-full sm:w-auto">
+                      <a href={item.link} target="_blank" rel="noopener noreferrer">
+                        访问官网
+                      </a>
+                    </Button>
+                  </div>
+                </div>
               </Card>
             ))}
           </div>
