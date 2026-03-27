@@ -1,17 +1,16 @@
 "use client"
 
-import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Search, Sparkles } from "lucide-react"
 
 interface SearchInputProps {
+  query: string
+  onQueryChange: (query: string) => void
   onSearch: (query: string) => void
   isLoading?: boolean
 }
 
-export function SearchInput({ onSearch, isLoading = false }: SearchInputProps) {
-  const [query, setQuery] = useState("")
-
+export function SearchInput({ query, onQueryChange, onSearch, isLoading = false }: SearchInputProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (query.trim()) {
@@ -27,7 +26,7 @@ export function SearchInput({ onSearch, isLoading = false }: SearchInputProps) {
           <input
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => onQueryChange(e.target.value)}
             placeholder="我想做PPT"
             className="w-full h-14 pl-12 pr-4 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-lg"
           />

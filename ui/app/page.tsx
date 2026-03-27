@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button"
 import type { RecommendItem } from "@/lib/recommend"
 
 export default function Home() {
+  const categories = ["写代码", "做PPT", "画图", "写作"] as const
+  const [query, setQuery] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState<(typeof categories)[number] | null>(null)
   const [results, setResults] = useState<RecommendItem[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
@@ -38,6 +41,19 @@ export default function Home() {
     }
   }
 
+  const handleCategoryClick = (category: (typeof categories)[number]) => {
+    setSelectedCategory(category)
+    setQuery(category)
+    void handleSearch(category)
+  }
+
+  const handleQueryChange = (value: string) => {
+    setQuery(value)
+    if (selectedCategory && value !== selectedCategory) {
+      setSelectedCategory(null)
+    }
+  }
+
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4 py-16">
       <div className="w-full max-w-3xl flex flex-col items-center gap-12">
@@ -51,8 +67,32 @@ export default function Home() {
           </p>
         </div>
 
-        {/* 搜索输入 */}
-        <SearchInput onSearch={handleSearch} isLoading={isLoading} />
+        {/* 分类快捷入口 + 搜索输入 */}
+        <div className="w-full max-w-2xl flex flex-col gap-4">
+          <div className="flex flex-wrap gap-2">
+            {categories.map((category) => (
+              <button
+                key={category}
+                type="button"
+                onClick={() => handleCategoryClick(category)}
+                className={`rounded-full border px-4 py-2 text-sm transition-colors ${
+                  selectedCategory === category
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border bg-muted text-foreground hover:bg-muted/70"
+                }`}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+
+          <SearchInput
+            query={query}
+            onQueryChange={handleQueryChange}
+            onSearch={handleSearch}
+            isLoading={isLoading}
+          />
+        </div>
 
         {/* 加载状态 */}
         {isLoading && (
