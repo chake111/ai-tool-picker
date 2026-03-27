@@ -18,6 +18,12 @@ const ZHIPU_API_TIMEOUT_MS = 30_000
 const AI_DETAIL_KEYWORD_REGEX = /(?:\bai\b|人工智能|大模型|生成式|llm|gpt|copilot|智能)/i
 const MAX_DESC_WORDS = 25
 const QUERY_CONTEXT_MAX_LENGTH = 120
+const QUERY_INTENT_REASON_RULES = [
+  { keywords: ["写代码", "编程", "coding", "code"], suffix: "适合编程开发场景" },
+  { keywords: ["做ppt", "ppt", "演示", "幻灯片"], suffix: "适合制作演示文稿" },
+  { keywords: ["画图", "绘图", "图像", "设计"], suffix: "适合图像生成或设计场景" },
+  { keywords: ["写作", "文案", "文章", "创作"], suffix: "适合内容创作" },
+] as const
 const PRIORITY_TOOLS = ["chatgpt", "notion ai", "gamma", "tome", "beautiful.ai"] as const
 const TAG_PRIORITY = [
   "新手友好",
@@ -84,7 +90,9 @@ const SYSTEM_PROMPT_SECTIONS = [
   "Recommend only tools with explicit AI capability (AI, GPT, LLM, generative, Copilot, 智能). Never recommend traditional software like PowerPoint, Google Slides, Keynote, WPS.",
   "Recommendations must directly match the user intent and be specific/actionable.",
   "desc must be one concise sentence, at most 25 words, and must explicitly mention AI capability.",
-  "reason must clearly connect the tool to the user's specific need.",
+  "reason must explicitly reference the user's input scenario and explain why this tool fits that exact need.",
+  "reason must avoid generic claims such as '功能强大' or '用途广泛', and stay natural/personalized.",
+  "reason must be at most 2 sentences, and avoid repeating the same user query multiple times.",
   "tags must contain 2-4 user-centric labels about suitability or usage context (not feature descriptions). Prioritize high-value labels like 新手友好, 免费可用, 中文友好, 专业用户, 开发者, 设计师, 内容创作者, 办公用户, 团队协作, 英文环境, 付费为主.",
   "If uncertain, prefer well-known AI tools: ChatGPT, Notion AI, Gamma, Tome, Beautiful.ai.",
 ] as const
@@ -253,11 +261,60 @@ function isDescWithinWordLimit(desc: string): boolean {
   return countDescWords(desc) <= MAX_DESC_WORDS
 }
 
+function normalizeTextForMatch(text: string): string {
+  return text.toLowerCase().replace(/\s+/g, "")
+}
+
+function getQueryReasonSuffix(query: string): string {
+  const normalizedQuery = query.trim().toLowerCase()
+  const matchedRule = QUERY_INTENT_REASON_RULES.find((rule) =>
+    rule.keywords.some((keyword) => normalizedQuery.includes(keyword)),
+  )
+  return matchedRule?.suffix ?? ""
+}
+
+function toTwoSentences(text: string): string {
+  const cleaned = text.trim().replace(/\s+/g, " ")
+  if (!cleaned) {
+    return ""
+  }
+  const parts = cleaned
+    .split(/(?<=[。！？!?…])/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+  if (parts.length <= 2) {
+    return parts.join("")
+  }
+  return parts.slice(0, 2).join("")
+}
+
 function withQueryContext(item: RecommendItem, query: string): RecommendItem {
-  const normalizedQuery = query.slice(0, QUERY_CONTEXT_MAX_LENGTH)
+  const normalizedQuery = query.slice(0, QUERY_CONTEXT_MAX_LENGTH).trim()
+  const baseReason = item.reason.trim().replace(/\s+/g, " ")
+  const normalizedReason = normalizeTextForMatch(baseReason)
+  const normalizedQueryForMatch = normalizeTextForMatch(normalizedQuery)
+  const hasQueryContext = normalizedQueryForMatch
+    ? normalizedReason.includes(normalizedQueryForMatch)
+    : true
+  const intentSuffix = getQueryReasonSuffix(normalizedQuery)
+  const hasIntentSuffix = intentSuffix ? baseReason.includes(intentSuffix) : true
+
+  let enhancedReason = baseReason
+  const needsContextSentence = normalizedQuery && !hasQueryContext
+  if (needsContextSentence && !hasIntentSuffix && intentSuffix) {
+    enhancedReason = `${enhancedReason} 适用于“${normalizedQuery}”场景，${intentSuffix}。`
+  } else {
+    if (needsContextSentence) {
+      enhancedReason = `${enhancedReason} 适用于“${normalizedQuery}”场景。`
+    }
+    if (!hasIntentSuffix && intentSuffix) {
+      enhancedReason = `${enhancedReason} ${intentSuffix}。`
+    }
+  }
+
   return {
     ...item,
-    reason: `${item.reason} This matches your need: ${normalizedQuery}.`,
+    reason: toTwoSentences(enhancedReason),
   }
 }
 
@@ -348,7 +405,7 @@ export async function POST(request: Request) {
           },
           {
             role: "user",
-            content: `用户需求（JSON 字符串）：${JSON.stringify(safeQuery)}\n请推荐 3 个工具，并返回如下格式的 JSON 数组：[{"name":"工具名","desc":"一句话介绍","reason":"推荐理由","tags":["标签1","标签2"]}]。每个工具必须包含 2~4 个 tags，且 tags 必须是用户视角的人群/场景标签（如 新手友好、中文友好、开发者、设计师、免费可用）。`,
+            content: `具体需求（JSON 字符串）：${JSON.stringify(safeQuery)}\n请根据这个具体需求，推荐 3 个工具，并解释为什么这个工具适合满足这个需求。返回如下格式的 JSON 数组：[{"name":"工具名","desc":"一句话介绍","reason":"推荐理由","tags":["标签1","标签2"]}]。每个工具必须包含 2~4 个 tags，且 tags 必须是用户视角的人群/场景标签（如 新手友好、中文友好、开发者、设计师、免费可用）。`,
           },
         ],
       }),
