@@ -3,4 +3,5 @@ export type RecommendItem = {
   desc: string
   reason: string
   link: string
+  tags: string[]
 }
