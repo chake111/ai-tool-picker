@@ -1,10 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { SearchInput } from "@/components/search-input"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { ComparePanel } from "@/components/compare-panel"
 import type { RecommendItem } from "@/lib/recommend"
+import { cn } from "@/lib/utils"
 
 type SearchHistoryItem = {
   query: string
@@ -13,6 +16,7 @@ type SearchHistoryItem = {
 
 const HISTORY_STORAGE_KEY = "ai_tool_picker_history"
 const HISTORY_LIMIT = 10
+const MAX_COMPARE_TOOLS = 3
 
 const buildNextHistory = (currentHistory: SearchHistoryItem[], query: string): SearchHistoryItem[] => {
   const deduplicatedHistory = currentHistory.filter((item) => item.query !== query)
@@ -27,6 +31,19 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [history, setHistory] = useState<SearchHistoryItem[]>([])
+  const [compareTools, setCompareTools] = useState<RecommendItem[]>([])
+  const [compareLimitHint, setCompareLimitHint] = useState("")
+  const resultRankMap = useMemo(() => {
+    return new Map(results.map((item, index) => [item.name, index]))
+  }, [results])
+  const comparePanelTools = useMemo(
+    () =>
+      compareTools.map((tool, index) => ({
+        ...tool,
+        recommendationRank: resultRankMap.get(tool.name) ?? index,
+      })),
+    [compareTools, resultRankMap],
+  )
   const getMatchedCategory = (value: string) => categories.find((category) => category === value) ?? null
 
   useEffect(() => {
@@ -73,6 +90,7 @@ export default function Home() {
     setIsLoading(true)
     setError("")
     setResults([])
+    setCompareLimitHint("")
 
     try {
       const response = await fetch("/api/recommend", {
@@ -120,8 +138,45 @@ export default function Home() {
     localStorage.removeItem(HISTORY_STORAGE_KEY)
   }
 
+  const clearCompareLimitHint = () => setCompareLimitHint("")
+
+  const isToolSelected = (toolName: string) => compareTools.some((tool) => tool.name === toolName)
+
+  const handleCompareToggle = (item: RecommendItem, checked: boolean | "indeterminate") => {
+    if (checked === "indeterminate") {
+      return
+    }
+    if (!checked) {
+      setCompareTools((prev) => prev.filter((tool) => tool.name !== item.name))
+      clearCompareLimitHint()
+      return
+    }
+
+    setCompareTools((prev) => {
+      if (prev.some((tool) => tool.name === item.name)) {
+        return prev
+      }
+      if (prev.length >= MAX_COMPARE_TOOLS) {
+        setCompareLimitHint(`最多只能对比 ${MAX_COMPARE_TOOLS} 个工具`)
+        return prev
+      }
+      clearCompareLimitHint()
+      return [...prev, item]
+    })
+  }
+
+  const handleRemoveCompareTool = (toolName: string) => {
+    setCompareTools((prev) => prev.filter((tool) => tool.name !== toolName))
+    clearCompareLimitHint()
+  }
+
+  const handleClearCompareTools = () => {
+    setCompareTools([])
+    clearCompareLimitHint()
+  }
+
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-4 py-16">
+    <main className="min-h-screen flex flex-col items-center justify-center px-4 py-16 pb-64">
       <div className="w-full max-w-3xl flex flex-col items-center gap-12">
         {/* 标题区域 */}
         <div className="text-center">
@@ -203,12 +258,33 @@ export default function Home() {
         )}
 
         {/* 结果列表 */}
-        {results.length > 0 && !isLoading && (
-          <div className="w-full max-w-2xl flex flex-col gap-4">
-            {results.map((item) => (
-                <Card key={item.name} className="p-5 rounded-xl border border-border">
+         {results.length > 0 && !isLoading && (
+           <div className="w-full max-w-2xl flex flex-col gap-4">
+             {compareLimitHint && (
+               <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+                 {compareLimitHint}
+               </div>
+             )}
+             {results.map((item) => (
+                <Card
+                  key={item.name}
+                  className={cn(
+                    "p-5 rounded-xl border",
+                    isToolSelected(item.name) ? "border-primary ring-1 ring-primary/30" : "border-border",
+                  )}
+                >
                   <div className="flex h-full flex-col">
-                    <h2 className="text-lg font-semibold text-foreground">{item.name}</h2>
+                    <div className="flex items-start justify-between gap-3">
+                      <h2 className="text-lg font-semibold text-foreground">{item.name}</h2>
+                      <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                        <Checkbox
+                          checked={isToolSelected(item.name)}
+                          onCheckedChange={(checked) => handleCompareToggle(item, checked)}
+                          aria-label={`将 ${item.name} 加入对比`}
+                        />
+                        对比
+                      </label>
+                    </div>
                     {Array.isArray(item.tags) && item.tags.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-2">
                         {item.tags.map((tag) => (
@@ -221,8 +297,10 @@ export default function Home() {
                         ))}
                       </div>
                     )}
-                    <p className="mt-2 text-sm text-muted-foreground">{item.desc}</p>
-                    <p className="mt-3 text-sm text-foreground">{item.reason}</p>
+                     <p className="mt-2 text-sm text-muted-foreground" title={item.desc}>
+                       {item.desc}
+                     </p>
+                     <p className="mt-3 text-sm text-foreground">{item.reason}</p>
                   <div className="mt-5">
                     <Button asChild className="w-full sm:w-auto">
                       <a href={item.link} target="_blank" rel="noopener noreferrer">
@@ -243,6 +321,11 @@ export default function Home() {
           </div>
         )}
       </div>
+      <ComparePanel
+        tools={comparePanelTools}
+        onRemove={handleRemoveCompareTool}
+        onClear={handleClearCompareTools}
+      />
     </main>
   )
 }
