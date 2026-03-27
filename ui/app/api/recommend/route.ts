@@ -69,12 +69,13 @@ const TOOL_OFFICIAL_LINKS: Record<string, string> = {
 }
 
 function resolveToolLink(toolName: string): string {
-  const normalized = toolName.trim().toLowerCase()
+  const trimmedName = toolName.trim()
+  const normalized = trimmedName.toLowerCase()
   const officialLink = TOOL_OFFICIAL_LINKS[normalized]
   if (officialLink) {
     return officialLink
   }
-  return `https://www.google.com/search?q=${encodeURIComponent(toolName.trim())}`
+  return `https://www.google.com/search?q=${encodeURIComponent(trimmedName)}`
 }
 
 function extractJsonArray(text: string): RecommendItem[] {
@@ -82,12 +83,15 @@ function extractJsonArray(text: string): RecommendItem[] {
   if (!Array.isArray(parsed)) {
     throw new Error("Model response is not an array")
   }
-  return parsed.map((item) => ({
-    name: String(item?.name ?? ""),
-    desc: String(item?.desc ?? ""),
-    reason: String(item?.reason ?? ""),
-    link: "",
-  }))
+  return parsed.map((item) => {
+    const name = String(item?.name ?? "")
+    return {
+      name,
+      desc: String(item?.desc ?? ""),
+      reason: String(item?.reason ?? ""),
+      link: resolveToolLink(name),
+    }
+  })
 }
 
 function extractJsonArrayFromContent(content: string): RecommendItem[] {
@@ -135,7 +139,7 @@ function normalizeRecommendations(recommendations: RecommendItem[]): RecommendIt
       name: item.name.trim(),
       desc: item.desc.trim(),
       reason: item.reason.trim(),
-      link: "",
+      link: item.link,
     }))
     .filter((item) => item.name && item.desc && item.reason)
     .filter((item) => !isTraditionalTool(item.name))
@@ -173,10 +177,7 @@ function normalizeRecommendations(recommendations: RecommendItem[]): RecommendIt
     }
   }
 
-  return result.slice(0, 3).map((item) => ({
-    ...item,
-    link: resolveToolLink(item.name),
-  }))
+  return result.slice(0, 3)
 }
 
 export async function POST(request: Request) {
