@@ -28,7 +28,7 @@ const FAVORITES_STORAGE_KEY = "ai_tool_picker_favorites"
 const HISTORY_LIMIT = 10
 const FAVORITES_LIMIT = 30
 const MAX_COMPARE_TOOLS = 3
-const FAVORITE_AI_KEYWORD_REGEX = /(?:\bai\b|人工智能|大模型|生成式|llm|gpt|copilot|智能)/gi
+const AI_KEYWORD_REGEX = /(?:\bai\b|人工智能|大模型|生成式|llm|gpt|copilot|智能)/i
 
 const buildNextHistory = (currentHistory: SearchHistoryItem[], query: string): SearchHistoryItem[] => {
   const deduplicatedHistory = currentHistory.filter((item) => item.query !== query)
@@ -57,7 +57,7 @@ const sanitizeFavoriteItem = (input: unknown): FavoriteItem | null => {
 
 const getFavoriteAiScore = (tool: FavoriteItem) => {
   const source = `${tool.desc} ${tool.reason} ${(tool.tags ?? []).join(" ")}`
-  const matches = source.match(FAVORITE_AI_KEYWORD_REGEX)
+  const matches = source.match(AI_KEYWORD_REGEX)
   return matches?.length ?? 0
 }
 
@@ -95,7 +95,7 @@ export default function Home() {
       if (favoriteSortMode === "scenario") {
         return (b.tags?.length ?? 0) - (a.tags?.length ?? 0)
       }
-      return a.name.localeCompare(b.name, "zh-Hans-CN")
+      return a.name.localeCompare(b.name, "zh-Hans-CN", { numeric: true, sensitivity: "base" })
     })
     return next
   }, [favoriteSortMode, favorites])
@@ -351,7 +351,11 @@ export default function Home() {
           )}
 
           {favoriteLimitHint && (
-            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+            <div
+              className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700"
+              role="status"
+              aria-live="polite"
+            >
               {favoriteLimitHint}
             </div>
           )}
@@ -359,8 +363,10 @@ export default function Home() {
           <div className="rounded-xl border border-border/70 bg-muted/20 p-3 sm:p-4">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="text-sm font-semibold text-foreground">我的工具库（{favorites.length}）</p>
-                  <p className="text-xs text-muted-foreground">收藏列表与搜索、对比独立，可随时取消收藏</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    我的工具库（<span aria-label={`${favorites.length} 个工具`}>{favorites.length}</span>）
+                  </p>
+                  <p className="text-xs text-muted-foreground">收藏列表与搜索和对比功能独立，可随时取消收藏</p>
                 </div>
                 <select
                   value={favoriteSortMode}
@@ -375,7 +381,7 @@ export default function Home() {
               </div>
 
               {favorites.length === 0 ? (
-                <p className="text-xs text-muted-foreground">你还没有收藏工具，点击推荐卡片上的“收藏”即可加入这里。</p>
+                <p className="text-xs text-muted-foreground">你还没有收藏工具，点击推荐卡片上的心形“收藏”按钮即可加入这里。</p>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {sortedFavorites.map((favorite) => (
@@ -465,7 +471,7 @@ export default function Home() {
                            type="button"
                            onClick={() => handleFavoriteToggle(item)}
                            className={cn(
-                             "inline-flex items-center gap-1 text-xs transition-all duration-150 hover:scale-105 active:scale-95",
+                             "inline-flex items-center gap-1 text-xs transition-colors duration-150",
                              isToolFavorited(item.name)
                                ? "text-rose-500"
                                : "text-muted-foreground hover:text-foreground",
