@@ -1,13 +1,8 @@
 import { NextResponse } from "next/server"
+import type { RecommendItem } from "@/lib/recommend"
 
 type RecommendRequest = {
   query: string
-}
-
-type RecommendItem = {
-  name: string
-  desc: string
-  reason: string
 }
 
 type ZhipuChatResponse = {
@@ -34,28 +29,53 @@ const FALLBACK_RECOMMENDATIONS: RecommendItem[] = [
     name: "ChatGPT",
     desc: "OpenAI 的生成式 AI 助手，可用于写作、问答、方案生成与内容改写。",
     reason: "具备成熟的大模型能力，能快速完成从灵感到成稿的 AI 生成流程。",
+    link: "https://chat.openai.com",
   },
   {
     name: "Notion AI",
     desc: "Notion 内置 AI 功能，可在文档中进行生成式写作、总结与知识问答。",
     reason: "如果你已使用 Notion，AI 能力可直接嵌入现有协作流程，落地成本低。",
+    link: "https://www.notion.so/product/ai",
   },
   {
     name: "Gamma",
     desc: "AI 演示文稿工具，可根据主题自动生成结构化页面与视觉排版。",
     reason: "相比传统手动排版，生成式 AI 能明显提升制作演示内容的效率。",
+    link: "https://gamma.app",
   },
   {
     name: "Tome",
     desc: "以生成式 AI 为核心的叙事型演示工具，支持快速生成大纲和页面内容。",
     reason: "适合需要快速构建故事化表达的场景，AI 能帮助完成内容与结构搭建。",
+    link: "https://tome.app",
   },
   {
     name: "Beautiful.ai",
     desc: "带有 AI 辅助设计能力的演示工具，可智能优化布局与视觉呈现。",
     reason: "在保持专业设计水准的同时，利用 AI 减少手动调版工作量。",
+    link: "https://www.beautiful.ai",
   },
 ]
+
+const TOOL_OFFICIAL_LINKS: Record<string, string> = {
+  chatgpt: "https://chat.openai.com",
+  "notion ai": "https://www.notion.so/product/ai",
+  gamma: "https://gamma.app",
+  tome: "https://tome.app",
+  "beautiful.ai": "https://www.beautiful.ai",
+  midjourney: "https://www.midjourney.com",
+  "dall-e": "https://openai.com/dall-e",
+  "stable diffusion": "https://stability.ai",
+}
+
+function resolveToolLink(toolName: string): string {
+  const normalized = toolName.trim().toLowerCase()
+  const officialLink = TOOL_OFFICIAL_LINKS[normalized]
+  if (officialLink) {
+    return officialLink
+  }
+  return `https://www.google.com/search?q=${encodeURIComponent(toolName.trim())}`
+}
 
 function extractJsonArray(text: string): RecommendItem[] {
   const parsed = JSON.parse(text)
@@ -66,6 +86,7 @@ function extractJsonArray(text: string): RecommendItem[] {
     name: String(item?.name ?? ""),
     desc: String(item?.desc ?? ""),
     reason: String(item?.reason ?? ""),
+    link: "",
   }))
 }
 
@@ -114,6 +135,7 @@ function normalizeRecommendations(recommendations: RecommendItem[]): RecommendIt
       name: item.name.trim(),
       desc: item.desc.trim(),
       reason: item.reason.trim(),
+      link: "",
     }))
     .filter((item) => item.name && item.desc && item.reason)
     .filter((item) => !isTraditionalTool(item.name))
@@ -151,7 +173,10 @@ function normalizeRecommendations(recommendations: RecommendItem[]): RecommendIt
     }
   }
 
-  return result.slice(0, 3)
+  return result.slice(0, 3).map((item) => ({
+    ...item,
+    link: resolveToolLink(item.name),
+  }))
 }
 
 export async function POST(request: Request) {
