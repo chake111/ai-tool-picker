@@ -279,7 +279,7 @@ function toTwoSentences(text: string): string {
     return ""
   }
   const parts = cleaned
-    .split(/(?<=[。！？!?])/)
+    .split(/(?<=[。！？!?…])/)
     .map((part) => part.trim())
     .filter(Boolean)
   if (parts.length <= 2) {
@@ -302,7 +302,7 @@ function withQueryContext(item: RecommendItem, query: string): RecommendItem {
   let enhancedReason = baseReason
   const needsContextSentence = normalizedQuery && !hasQueryContext
   if (needsContextSentence && !hasIntentSuffix && intentSuffix) {
-    enhancedReason = `${enhancedReason} 适用于“${normalizedQuery}”场景，也${intentSuffix}。`
+    enhancedReason = `${enhancedReason} 适用于“${normalizedQuery}”场景，${intentSuffix}。`
   } else {
     if (needsContextSentence) {
       enhancedReason = `${enhancedReason} 适用于“${normalizedQuery}”场景。`
@@ -405,7 +405,7 @@ export async function POST(request: Request) {
           },
           {
             role: "user",
-            content: `具体需求（JSON 字符串）：${JSON.stringify(safeQuery)}\n请根据这个具体需求，推荐 3 个工具，并解释为什么推荐这个工具给这个需求。返回如下格式的 JSON 数组：[{"name":"工具名","desc":"一句话介绍","reason":"推荐理由","tags":["标签1","标签2"]}]。每个工具必须包含 2~4 个 tags，且 tags 必须是用户视角的人群/场景标签（如 新手友好、中文友好、开发者、设计师、免费可用）。`,
+            content: `具体需求（JSON 字符串）：${JSON.stringify(safeQuery)}\n请根据这个具体需求，推荐 3 个工具，并解释为什么这个工具适合满足这个需求。返回如下格式的 JSON 数组：[{"name":"工具名","desc":"一句话介绍","reason":"推荐理由","tags":["标签1","标签2"]}]。每个工具必须包含 2~4 个 tags，且 tags 必须是用户视角的人群/场景标签（如 新手友好、中文友好、开发者、设计师、免费可用）。`,
           },
         ],
       }),
