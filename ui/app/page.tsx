@@ -73,11 +73,23 @@ export default function Home() {
         {results.length > 0 && !isLoading && (
           <div className="w-full max-w-2xl flex flex-col gap-4">
             {results.map((item) => (
-              <Card key={item.name} className="p-5 rounded-xl border border-border">
-                <div className="flex h-full flex-col">
-                  <h2 className="text-lg font-semibold text-foreground">{item.name}</h2>
-                  <p className="mt-2 text-sm text-muted-foreground">{item.desc}</p>
-                  <p className="mt-3 text-sm text-foreground">{item.reason}</p>
+                <Card key={item.name} className="p-5 rounded-xl border border-border">
+                  <div className="flex h-full flex-col">
+                    <h2 className="text-lg font-semibold text-foreground">{item.name}</h2>
+                    {Array.isArray(item.tags) && item.tags.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {item.tags.map((tag) => (
+                          <span
+                            key={`${item.name}-${tag}`}
+                            className="rounded-full bg-muted px-2.5 py-1 text-xs text-foreground"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <p className="mt-2 text-sm text-muted-foreground">{item.desc}</p>
+                    <p className="mt-3 text-sm text-foreground">{item.reason}</p>
                   <div className="mt-5">
                     <Button asChild className="w-full sm:w-auto">
                       <a href={item.link} target="_blank" rel="noopener noreferrer">
