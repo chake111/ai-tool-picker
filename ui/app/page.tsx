@@ -14,6 +14,11 @@ type SearchHistoryItem = {
 const HISTORY_STORAGE_KEY = "ai_tool_picker_history"
 const HISTORY_LIMIT = 10
 
+const buildNextHistory = (currentHistory: SearchHistoryItem[], query: string): SearchHistoryItem[] => {
+  const deduplicatedHistory = currentHistory.filter((item) => item.query !== query)
+  return [{ query, timestamp: Date.now() }, ...deduplicatedHistory].slice(0, HISTORY_LIMIT)
+}
+
 export default function Home() {
   const categories = ["写代码", "做PPT", "画图", "写作"] as const
   const [query, setQuery] = useState("")
@@ -22,6 +27,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [history, setHistory] = useState<SearchHistoryItem[]>([])
+  const getMatchedCategory = (value: string) => categories.find((category) => category === value) ?? null
 
   useEffect(() => {
     try {
@@ -49,10 +55,11 @@ export default function Home() {
     if (!normalizedQuery) return
 
     setHistory((prev) => {
-      const nextHistory = [{ query: normalizedQuery, timestamp: Date.now() }, ...prev.filter((item) => item.query !== normalizedQuery)].slice(
-        0,
-        HISTORY_LIMIT,
-      )
+      if (prev[0]?.query === normalizedQuery) {
+        return prev
+      }
+
+      const nextHistory = buildNextHistory(prev, normalizedQuery)
       localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(nextHistory))
       return nextHistory
     })
@@ -104,8 +111,7 @@ export default function Home() {
 
   const handleHistoryClick = (historyQuery: string) => {
     setQuery(historyQuery)
-    const matchedCategory = categories.find((category) => category === historyQuery) ?? null
-    setSelectedCategory(matchedCategory)
+    setSelectedCategory(getMatchedCategory(historyQuery))
     void handleSearch(historyQuery)
   }
 
