@@ -1,10 +1,18 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { SearchInput } from "@/components/search-input"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import type { RecommendItem } from "@/lib/recommend"
+
+type SearchHistoryItem = {
+  query: string
+  timestamp: number
+}
+
+const HISTORY_STORAGE_KEY = "ai_tool_picker_history"
+const HISTORY_LIMIT = 10
 
 export default function Home() {
   const categories = ["写代码", "做PPT", "画图", "写作"] as const
@@ -13,8 +21,48 @@ export default function Home() {
   const [results, setResults] = useState<RecommendItem[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const [history, setHistory] = useState<SearchHistoryItem[]>([])
 
-  const handleSearch = async (query: string) => {
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(HISTORY_STORAGE_KEY)
+      if (!stored) return
+
+      const parsed = JSON.parse(stored) as SearchHistoryItem[]
+      if (!Array.isArray(parsed)) return
+
+      const sanitized = parsed
+        .filter(
+          (item): item is SearchHistoryItem =>
+            typeof item?.query === "string" && item.query.trim().length > 0 && typeof item?.timestamp === "number",
+        )
+        .slice(0, HISTORY_LIMIT)
+
+      setHistory(sanitized)
+    } catch {
+      setHistory([])
+    }
+  }, [])
+
+  const saveHistory = (inputQuery: string) => {
+    const normalizedQuery = inputQuery.trim()
+    if (!normalizedQuery) return
+
+    setHistory((prev) => {
+      const nextHistory = [{ query: normalizedQuery, timestamp: Date.now() }, ...prev.filter((item) => item.query !== normalizedQuery)].slice(
+        0,
+        HISTORY_LIMIT,
+      )
+      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(nextHistory))
+      return nextHistory
+    })
+  }
+
+  const handleSearch = async (inputQuery: string) => {
+    const normalizedQuery = inputQuery.trim()
+    if (!normalizedQuery) return
+
+    saveHistory(normalizedQuery)
     setIsLoading(true)
     setError("")
     setResults([])
@@ -25,7 +73,7 @@ export default function Home() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query: normalizedQuery }),
       })
 
       if (!response.ok) {
@@ -52,6 +100,18 @@ export default function Home() {
     if (selectedCategory && value !== selectedCategory) {
       setSelectedCategory(null)
     }
+  }
+
+  const handleHistoryClick = (historyQuery: string) => {
+    setQuery(historyQuery)
+    const matchedCategory = categories.find((category) => category === historyQuery) ?? null
+    setSelectedCategory(matchedCategory)
+    void handleSearch(historyQuery)
+  }
+
+  const handleClearHistory = () => {
+    setHistory([])
+    localStorage.removeItem(HISTORY_STORAGE_KEY)
   }
 
   return (
@@ -92,6 +152,33 @@ export default function Home() {
             onSearch={handleSearch}
             isLoading={isLoading}
           />
+
+          {history.length > 0 && (
+            <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">历史搜索</p>
+                <button
+                  type="button"
+                  onClick={handleClearHistory}
+                  className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  清空历史
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {history.map((item) => (
+                  <button
+                    key={`${item.query}-${item.timestamp}`}
+                    type="button"
+                    onClick={() => handleHistoryClick(item.query)}
+                    className="rounded-md border border-border/70 bg-background px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-muted"
+                  >
+                    {item.query}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 加载状态 */}
