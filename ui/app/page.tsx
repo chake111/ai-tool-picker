@@ -29,6 +29,61 @@ const HISTORY_LIMIT = 10
 const FAVORITES_LIMIT = 30
 const MAX_COMPARE_TOOLS = 3
 const AI_KEYWORD_REGEX = /(?:\bai\b|人工智能|大模型|生成式|llm|gpt|copilot|智能)/i
+const LOADING_SIMULATION_DELAY_MS = 350
+const FAVORITE_ANIMATION_DURATION_MS = 250
+const POPULAR_TOOLS: RecommendItem[] = [
+  {
+    name: "ChatGPT",
+    desc: "多场景通用 AI 助手，适合写作、编程、总结和创意生成",
+    reason: "上手简单，适合新手和专业用户，支持中文对话",
+    link: "https://chat.openai.com",
+    tags: ["写作", "编程", "中文支持", "Beginner"],
+  },
+  {
+    name: "Claude",
+    desc: "擅长长文本理解与结构化输出的 AI 助手",
+    reason: "适合深度分析和长内容创作，专业用户体验友好",
+    link: "https://claude.ai",
+    tags: ["写作", "分析", "Pro"],
+  },
+  {
+    name: "Notion AI",
+    desc: "面向文档与团队协作的一体化 AI 功能",
+    reason: "和知识库结合紧密，适合办公与项目管理",
+    link: "https://www.notion.so/product/ai",
+    tags: ["办公", "团队", "Paid"],
+  },
+  {
+    name: "Gamma",
+    desc: "快速生成演示文稿与文档页面，适合做 PPT",
+    reason: "模板丰富、产出快，演示类需求效率高",
+    link: "https://gamma.app",
+    tags: ["PPT", "Beginner", "Free"],
+  },
+  {
+    name: "Midjourney",
+    desc: "高质量 AI 绘图工具，适合创意和视觉设计",
+    reason: "图片表现力强，适合对画面质量要求较高的场景",
+    link: "https://www.midjourney.com",
+    tags: ["绘图", "设计", "Pro", "Paid"],
+  },
+  {
+    name: "GitHub Copilot",
+    desc: "代码补全与编程建议工具，提升开发效率",
+    reason: "开发者常用，支持多语言编程场景",
+    link: "https://github.com/features/copilot",
+    tags: ["编程", "Pro", "Paid"],
+  },
+]
+
+const pickRandomTools = (tools: RecommendItem[], count: number): RecommendItem[] => {
+  const shuffled = [...tools]
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled.slice(0, Math.min(count, shuffled.length))
+}
 
 const buildNextHistory = (currentHistory: SearchHistoryItem[], query: string): SearchHistoryItem[] => {
   const deduplicatedHistory = currentHistory.filter((item) => item.query !== query)
@@ -75,6 +130,15 @@ export default function Home() {
   const [favoriteSortMode, setFavoriteSortMode] = useState<"name" | "ai" | "scenario">("name")
   const [favoriteLimitHint, setFavoriteLimitHint] = useState("")
   const [favoritesHydrated, setFavoritesHydrated] = useState(false)
+  const [lastSearchedQuery, setLastSearchedQuery] = useState("")
+  const [activeFilters, setActiveFilters] = useState({
+    free: false,
+    paid: false,
+    beginner: false,
+    pro: false,
+    chinese: false,
+  })
+  const [favoriteAnimatingTool, setFavoriteAnimatingTool] = useState("")
   const resultRankMap = useMemo(() => {
     return new Map(results.map((item, index) => [item.name, index]))
   }, [results])
@@ -99,6 +163,17 @@ export default function Home() {
     })
     return next
   }, [favoriteSortMode, favorites])
+  const filteredResults = useMemo(() => {
+    return results.filter((item) => {
+      const text = `${item.name} ${item.desc} ${item.reason} ${(item.tags ?? []).join(" ")}`.toLowerCase()
+      if (activeFilters.free && !text.includes("free") && !text.includes("免费")) return false
+      if (activeFilters.paid && !text.includes("paid") && !text.includes("付费")) return false
+      if (activeFilters.beginner && !text.includes("beginner") && !text.includes("新手")) return false
+      if (activeFilters.pro && !text.includes("pro") && !text.includes("专业")) return false
+      if (activeFilters.chinese && !text.includes("中文")) return false
+      return true
+    })
+  }, [activeFilters, results])
   const getMatchedCategory = (value: string) => categories.find((category) => category === value) ?? null
 
   useEffect(() => {
@@ -161,13 +236,24 @@ export default function Home() {
 
   const handleSearch = async (inputQuery: string) => {
     const normalizedQuery = inputQuery.trim()
-    if (!normalizedQuery) return
+    if (!normalizedQuery) {
+      setIsLoading(true)
+      setError("")
+      setCompareLimitHint("")
+      setLastSearchedQuery("热门工具")
+      setResults([])
+      await new Promise((resolve) => setTimeout(resolve, LOADING_SIMULATION_DELAY_MS))
+      setResults(pickRandomTools(POPULAR_TOOLS, 3))
+      setIsLoading(false)
+      return
+    }
 
     saveHistory(normalizedQuery)
     setIsLoading(true)
     setError("")
     setResults([])
     setCompareLimitHint("")
+    setLastSearchedQuery(normalizedQuery)
 
     try {
       const response = await fetch("/api/recommend", {
@@ -222,6 +308,8 @@ export default function Home() {
       const exists = prev.some((tool) => tool.name === item.name)
       if (exists) {
         setFavoriteLimitHint("")
+        setFavoriteAnimatingTool(item.name)
+        setTimeout(() => setFavoriteAnimatingTool(""), FAVORITE_ANIMATION_DURATION_MS)
         return prev.filter((tool) => tool.name !== item.name)
       }
       if (prev.length >= FAVORITES_LIMIT) {
@@ -229,6 +317,8 @@ export default function Home() {
         return prev
       }
       setFavoriteLimitHint("")
+      setFavoriteAnimatingTool(item.name)
+      setTimeout(() => setFavoriteAnimatingTool(""), FAVORITE_ANIMATION_DURATION_MS)
       return [
         {
           name: item.name,
@@ -245,6 +335,10 @@ export default function Home() {
   const handleRemoveFavorite = (toolName: string) => {
     setFavorites((prev) => prev.filter((tool) => tool.name !== toolName))
     setFavoriteLimitHint("")
+  }
+
+  const handleFilterToggle = (filter: keyof typeof activeFilters) => {
+    setActiveFilters((prev) => ({ ...prev, [filter]: !prev[filter] }))
   }
 
   const clearCompareLimitHint = () => setCompareLimitHint("")
@@ -323,10 +417,10 @@ export default function Home() {
             isLoading={isLoading}
           />
 
-          {history.length > 0 && (
-            <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">历史搜索</p>
+          <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">历史搜索</p>
+              {history.length > 0 && (
                 <button
                   type="button"
                   onClick={handleClearHistory}
@@ -334,7 +428,11 @@ export default function Home() {
                 >
                   清空历史
                 </button>
-              </div>
+              )}
+            </div>
+            {history.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No recent searches</p>
+            ) : (
               <div className="flex flex-wrap gap-2">
                 {history.map((item) => (
                   <button
@@ -347,8 +445,37 @@ export default function Home() {
                   </button>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+            <p className="text-xs text-muted-foreground">筛选：</p>
+            {[
+              { key: "free", label: "Free" },
+              { key: "paid", label: "Paid" },
+              { key: "beginner", label: "Beginner" },
+              { key: "pro", label: "Pro" },
+              { key: "chinese", label: "中文支持" },
+            ].map((filter) => {
+              const selected = activeFilters[filter.key as keyof typeof activeFilters]
+              return (
+                <button
+                  key={filter.key}
+                  type="button"
+                  onClick={() => handleFilterToggle(filter.key as keyof typeof activeFilters)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs transition-colors",
+                    selected
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border bg-background text-foreground hover:bg-muted",
+                  )}
+                  aria-pressed={selected}
+                >
+                  {filter.label}
+                </button>
+              )
+            })}
+          </div>
 
           {favoriteLimitHint && (
             <div
@@ -381,7 +508,7 @@ export default function Home() {
               </div>
 
               {favorites.length === 0 ? (
-                <p className="text-xs text-muted-foreground">你还没有收藏工具，点击推荐卡片上的心形“收藏”按钮即可加入这里。</p>
+                <p className="text-xs text-muted-foreground">No favorites yet. Click the heart icon (❤️) to save tools</p>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {sortedFavorites.map((favorite) => (
@@ -449,49 +576,66 @@ export default function Home() {
 
         {/* 结果列表 */}
          {results.length > 0 && !isLoading && (
-           <div className="w-full max-w-2xl flex flex-col gap-4">
-             {compareLimitHint && (
-               <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
-                 {compareLimitHint}
-               </div>
-             )}
-             {results.map((item) => (
-                <Card
-                  key={item.name}
-                  className={cn(
-                    "p-5 rounded-xl border",
-                    isToolSelected(item.name) ? "border-primary ring-1 ring-primary/30" : "border-border",
-                  )}
-                >
+            <div className="w-full max-w-2xl flex flex-col gap-4">
+              <div className="text-sm text-muted-foreground">
+                Found {filteredResults.length} tools for &quot;{lastSearchedQuery || query || "query"}&quot;
+              </div>
+              {compareLimitHint && (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+                  {compareLimitHint}
+                </div>
+              )}
+              {compareTools.length === 1 && (
+                <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs text-sky-700">
+                  1 tool selected, select more to compare
+                </div>
+              )}
+              {filteredResults.map((item) => (
+                 <Card
+                   key={item.name}
+                   className={cn(
+                     "p-5 rounded-xl border transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-md",
+                     isToolSelected(item.name) ? "border-primary ring-1 ring-primary/30" : "border-border",
+                   )}
+                 >
                   <div className="flex h-full flex-col">
                    <div className="flex items-start justify-between gap-3">
                        <h2 className="text-lg font-semibold text-foreground">{item.name}</h2>
                        <div className="flex items-center gap-3">
-                         <button
-                           type="button"
-                           onClick={() => handleFavoriteToggle(item)}
-                           className={cn(
-                             "inline-flex items-center gap-1 text-xs transition-colors duration-150",
-                             isToolFavorited(item.name)
-                               ? "text-rose-500"
-                               : "text-muted-foreground hover:text-foreground",
-                           )}
-                           title={isToolFavorited(item.name) ? "取消收藏" : "收藏"}
-                           aria-label={isToolFavorited(item.name) ? `取消收藏 ${item.name}` : `收藏 ${item.name}`}
+                          <button
+                            type="button"
+                            onClick={() => handleFavoriteToggle(item)}
+                            className={cn(
+                              "inline-flex items-center gap-1 text-xs transition-all duration-150",
+                              isToolFavorited(item.name)
+                                ? "text-rose-500"
+                                : "text-muted-foreground hover:text-foreground",
+                              favoriteAnimatingTool === item.name ? "scale-110" : "scale-100",
+                            )}
+                            title={isToolFavorited(item.name) ? "取消收藏" : "收藏"}
+                            aria-label={isToolFavorited(item.name) ? `取消收藏 ${item.name}` : `收藏 ${item.name}`}
                          >
                            <Heart className={cn("size-4", isToolFavorited(item.name) ? "fill-current" : "")} />
                            <span>{isToolFavorited(item.name) ? "已收藏" : "收藏"}</span>
                          </button>
-                         <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-                           <Checkbox
-                             checked={isToolSelected(item.name)}
-                             onCheckedChange={(checked) => handleCompareToggle(item, checked)}
-                             aria-label={`将 ${item.name} 加入对比`}
-                           />
-                           对比
-                         </label>
-                       </div>
-                     </div>
+                          <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                            <Checkbox
+                              checked={isToolSelected(item.name)}
+                              onCheckedChange={(checked) => handleCompareToggle(item, checked)}
+                              aria-label={`将 ${item.name} 加入对比`}
+                            />
+                            对比
+                          </label>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={isToolSelected(item.name) ? "secondary" : "outline"}
+                            onClick={() => handleCompareToggle(item, !isToolSelected(item.name))}
+                          >
+                            Compare
+                          </Button>
+                        </div>
+                      </div>
                     {Array.isArray(item.tags) && item.tags.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-2">
                         {item.tags.map((tag) => (
