@@ -110,7 +110,7 @@ Then read `userId` from:
 const userId = session?.user?.id
 ```
 
-This project sets `session.user.id` in `/home/runner/work/ai-tool-picker/ai-tool-picker/ui/lib/auth.ts` via the NextAuth callbacks.
+This project sets `session.user.id` in `ui/lib/auth.ts` via the NextAuth callbacks.
 
 Complete TypeScript example:
 
