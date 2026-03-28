@@ -1,15 +1,14 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
-import { AuthSessionProvider } from '@/components/auth-session-provider'
 import './globals.css'
 
-const _geist = Geist({ subsets: ["latin"] });
-const _geistMono = Geist_Mono({ subsets: ["latin"] });
+const _geist = Geist({ subsets: ['latin'] })
+const _geistMono = Geist_Mono({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'AI选择器 - 帮你选最合适的AI工具',
-  description: '输入你的需求，我们帮你找到最适合的AI工具',
+  title: 'AI Tool Picker',
+  description: 'Tell us what you need and we will recommend suitable AI tools.',
   generator: 'v0.app',
   icons: {
     icon: [
@@ -38,7 +37,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans antialiased">
-        <AuthSessionProvider>{children}</AuthSessionProvider>
+        {children}
         <Analytics />
       </body>
     </html>
