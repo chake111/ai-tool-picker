@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { ExternalLink, Minus, X } from "lucide-react"
 import type { RecommendItem } from "@/lib/recommend"
 import { Button } from "@/components/ui/button"
@@ -38,6 +38,15 @@ export function ComparePanel({ tools, onRemove, onClear }: ComparePanelProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("table")
 
   const hasEnoughTools = tools.length >= 2
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return
+      setIsClosed(true)
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [])
 
   const aiScoreByTool = useMemo(() => {
     return new Map(tools.map((tool) => [tool.name, getAiFeatureScore(tool)]))
