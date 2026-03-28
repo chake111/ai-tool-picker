@@ -10,7 +10,10 @@ import { USER_BEHAVIOR_WEIGHTS, cosineSimilarity } from "@/lib/recommend"
 
 type RecommendRequest = {
   query: string
+  locale?: string
 }
+
+type SupportedLocale = "zh" | "en"
 
 type ZhipuChatResponse = {
   choices?: Array<{
@@ -53,13 +56,21 @@ const ZHIPU_API_TIMEOUT_MS = 30_000
 const ZHIPU_EMBEDDING_MODEL = "embedding-3"
 const OPENAI_EMBEDDING_MODEL = "text-embedding-3-small"
 const AI_DETAIL_KEYWORD_REGEX = /(?:\bai\b|人工智能|大模型|生成式|llm|gpt|copilot|智能)/i
+const CJK_CHAR_REGEX = /[\u3400-\u9FFF]/g
+const LATIN_CHAR_REGEX = /[A-Za-z]/g
+const CJK_DOMINANT_RATIO_THRESHOLD = 0.6
+const LATIN_DOMINANT_RATIO_THRESHOLD = 2
 const MAX_DESC_WORDS = 25
 const QUERY_CONTEXT_MAX_LENGTH = 120
 const QUERY_INTENT_REASON_RULES = [
-  { keywords: ["写代码", "编程", "coding", "code"], suffix: "适合编程开发场景" },
-  { keywords: ["做ppt", "ppt", "演示", "幻灯片"], suffix: "适合制作演示文稿" },
-  { keywords: ["画图", "绘图", "图像", "设计"], suffix: "适合图像生成或设计场景" },
-  { keywords: ["写作", "文案", "文章", "创作"], suffix: "适合内容创作" },
+  { keywords: ["写代码", "编程", "coding", "code"], zh: "适合编程开发场景", en: "well-suited for coding workflows" },
+  { keywords: ["做ppt", "ppt", "演示", "幻灯片"], zh: "适合制作演示文稿", en: "well-suited for presentation creation" },
+  {
+    keywords: ["画图", "绘图", "图像", "设计"],
+    zh: "适合图像生成或设计场景",
+    en: "well-suited for image generation or design tasks",
+  },
+  { keywords: ["写作", "文案", "文章", "创作"], zh: "适合内容创作", en: "well-suited for content creation" },
 ] as const
 const PRIORITY_TOOLS = ["chatgpt", "notion ai", "gamma", "tome", "beautiful.ai"] as const
 const TAG_PRIORITY = [
@@ -77,6 +88,36 @@ const TAG_PRIORITY = [
   "通用场景",
 ] as const
 const LOW_VALUE_TAGS = new Set(["效率高", "功能强大", "AI工具", "易上手"])
+const EN_TOOL_TEXT: Record<string, { description: string; reason: string }> = {
+  gamma: {
+    description: "An AI presentation tool that auto-generates structured pages and visual layouts from your topic.",
+    reason: "Compared with manual slide design, its generative AI workflow speeds up presentation creation.",
+  },
+  tome: {
+    description: "A narrative AI presentation tool that quickly creates storylines, slide content, and visual structure.",
+    reason: "Great when you need story-driven communication, because AI helps build both structure and content fast.",
+  },
+  "notion ai": {
+    description: "An AI assistant inside Notion for writing, summarization, rewriting, and knowledge Q&A.",
+    reason: "If you already use Notion, its AI features fit directly into your existing collaboration workflow.",
+  },
+  chatgpt: {
+    description: "A general-purpose generative AI assistant for writing, Q&A, planning, and content rewriting.",
+    reason: "Its mature model capability helps you go from idea to draft quickly in many day-to-day tasks.",
+  },
+  midjourney: {
+    description: "An AI image generation tool that turns text prompts into high-quality visual outputs.",
+    reason: "It is a strong fit for visual creation scenarios that require expressive image quality.",
+  },
+  "github copilot": {
+    description: "An AI coding assistant for developers that helps generate code, tests, and inline comments.",
+    reason: "For coding tasks, it reduces repetitive work and speeds up implementation in developer workflows.",
+  },
+  "beautiful.ai": {
+    description: "A presentation tool with AI-assisted design that can optimize layout and visual polish automatically.",
+    reason: "It helps maintain a professional design standard while reducing manual formatting effort with AI.",
+  },
+}
 const TOOL_DATASET: ToolDatasetItem[] = [
   {
     name: "Gamma",
@@ -183,7 +224,32 @@ const SYSTEM_PROMPT_SECTIONS = [
   "tags must contain 2-4 user-centric labels about suitability or usage context (not feature descriptions). Prioritize high-value labels like 新手友好, 免费可用, 中文友好, 专业用户, 开发者, 设计师, 内容创作者, 办公用户, 团队协作, 英文环境, 付费为主.",
   "If uncertain, prefer well-known AI tools: ChatGPT, Notion AI, Gamma, Tome, Beautiful.ai.",
 ] as const
-const SYSTEM_PROMPT = SYSTEM_PROMPT_SECTIONS.join(" ")
+
+function parseLocale(rawLocale: unknown): SupportedLocale {
+  if (rawLocale == null) {
+    return "en"
+  }
+  if (typeof rawLocale !== "string") {
+    return "en"
+  }
+  return rawLocale === "zh" ? "zh" : "en"
+}
+
+function normalizeToolNameKey(toolName: string): string {
+  return toolName.trim().toLowerCase()
+}
+
+function getSystemPrompt(locale: SupportedLocale): string {
+  const languageInstruction =
+    locale === "zh"
+      ? "locale=zh => all user-facing text MUST be in Simplified Chinese."
+      : "locale=en => all user-facing text MUST be in English."
+  return [
+    ...SYSTEM_PROMPT_SECTIONS,
+    languageInstruction,
+    "For field language: keep tool name as-is if it is a proper noun, but desc/reason/tags (and any summary-like user-facing text) must follow locale language.",
+  ].join(" ")
+}
 
 const TOOL_OFFICIAL_LINKS: Record<string, string> = {
   chatgpt: "https://chat.openai.com",
@@ -203,6 +269,34 @@ const DEFAULT_TAGS_BY_TOOL: Record<string, string[]> = {
   gamma: ["办公用户", "内容创作者"],
   tome: ["内容创作者", "设计师"],
   "beautiful.ai": ["设计师", "办公用户"],
+}
+const ZH_TO_EN_TAG_MAP: Record<string, string> = {
+  新手友好: "Beginner-friendly",
+  免费可用: "Free",
+  中文友好: "Chinese-friendly",
+  专业用户: "Pro users",
+  开发者: "Developers",
+  设计师: "Designers",
+  内容创作者: "Content creators",
+  办公用户: "Office users",
+  团队协作: "Team collaboration",
+  英文环境: "English-first",
+  付费为主: "Paid",
+  通用场景: "General use",
+}
+const EN_TO_ZH_TAG_MAP: Record<string, string> = {
+  "beginner-friendly": "新手友好",
+  free: "免费可用",
+  "chinese-friendly": "中文友好",
+  "pro users": "专业用户",
+  developers: "开发者",
+  designers: "设计师",
+  "content creators": "内容创作者",
+  "office users": "办公用户",
+  "team collaboration": "团队协作",
+  "english-first": "英文环境",
+  paid: "付费为主",
+  "general use": "通用场景",
 }
 
 let toolEmbeddingCachePromise: Promise<ToolEmbeddingItem[]> | null = null
@@ -380,19 +474,17 @@ function rankToolsForUser(profile: UserEmbeddingProfile, toolRecords: ToolEmbedd
     .slice(0, limit)
 }
 
-function toRecommendItem(tool: ToolDatasetItem): RecommendItem {
-  const primaryUseCase = tool.use_cases[0] ?? "general AI tasks"
-  const primaryAudience = tool.target_users[0] ?? "general users"
+function toRecommendItem(tool: ToolDatasetItem, query: string, locale: SupportedLocale): RecommendItem {
   return {
     name: tool.name,
-    desc: tool.description,
-    reason: `${tool.name} 在“${primaryUseCase}”场景更匹配，尤其适合${primaryAudience}。`,
+    desc: localizeToolDescription(tool, locale),
+    reason: localizeToolReason(tool, query, locale),
     link: tool.link,
-    tags: normalizeTags(tool.tags, tool.name),
+    tags: localizeTags(normalizeTags(tool.tags, tool.name), locale),
   }
 }
 
-function buildRefineUserPrompt(query: string, topTools: ToolDatasetItem[]): string {
+function buildRefineUserPrompt(query: string, topTools: ToolDatasetItem[], locale: SupportedLocale): string {
   const candidateTools = topTools.map((tool) => ({
     name: tool.name,
     description: tool.description,
@@ -401,12 +493,22 @@ function buildRefineUserPrompt(query: string, topTools: ToolDatasetItem[]): stri
     target_users: tool.target_users,
   }))
 
-  return `用户需求（JSON 字符串）：${JSON.stringify(query)}\n请只基于以下候选工具输出 3 个推荐（不能新增其他工具）：${JSON.stringify(
+  if (locale === "zh") {
+    return `用户需求（JSON 字符串）：${JSON.stringify(query)}\n请只基于以下候选工具输出 3 个推荐（不能新增其他工具）：${JSON.stringify(
+      candidateTools,
+    )}\n返回 JSON 数组：[{"name":"工具名","desc":"一句话介绍","reason":"推荐理由","tags":["标签1","标签2"]}]`
+  }
+
+  return `User request (JSON string): ${JSON.stringify(query)}\nOnly choose from the following candidate tools and return exactly 3 recommendations (do not add tools): ${JSON.stringify(
     candidateTools,
-  )}\n返回 JSON 数组：[{"name":"工具名","desc":"一句话介绍","reason":"推荐理由","tags":["标签1","标签2"]}]`
+  )}\nReturn JSON array: [{"name":"Tool Name","desc":"One-sentence description","reason":"Recommendation reason","tags":["Tag1","Tag2"]}]`
 }
 
-async function refineTopToolsWithLLM(query: string, topTools: ToolDatasetItem[]): Promise<RecommendItem[] | null> {
+async function refineTopToolsWithLLM(
+  query: string,
+  topTools: ToolDatasetItem[],
+  locale: SupportedLocale,
+): Promise<RecommendItem[] | null> {
   const apiKey = process.env.ZHIPU_API_KEY
   if (!apiKey) {
     return null
@@ -425,11 +527,11 @@ async function refineTopToolsWithLLM(query: string, topTools: ToolDatasetItem[])
       messages: [
         {
           role: "system",
-          content: SYSTEM_PROMPT,
+          content: getSystemPrompt(locale),
         },
         {
           role: "user",
-          content: buildRefineUserPrompt(query, topTools),
+          content: buildRefineUserPrompt(query, topTools, locale),
         },
       ],
     }),
@@ -465,6 +567,18 @@ function getDefaultTags(toolName: string): string[] {
     return DEFAULT_TAGS_BY_TOOL["notion ai"]
   }
   return ["新手友好", "通用场景"]
+}
+
+function localizeTag(tag: string, locale: SupportedLocale): string {
+  if (locale === "zh") {
+    const normalized = tag.trim().toLowerCase()
+    return EN_TO_ZH_TAG_MAP[normalized] ?? tag
+  }
+  return ZH_TO_EN_TAG_MAP[tag] ?? tag
+}
+
+function localizeTags(tags: string[], locale: SupportedLocale): string[] {
+  return tags.map((tag) => localizeTag(tag, locale))
 }
 
 function normalizeTags(rawTags: unknown, toolName: string): string[] {
@@ -516,6 +630,33 @@ function normalizeTags(rawTags: unknown, toolName: string): string[] {
   }
 
   return merged.filter(Boolean).slice(0, 4)
+}
+
+function localizeToolDescription(tool: ToolDatasetItem, locale: SupportedLocale): string {
+  if (locale === "zh") {
+    return tool.description
+  }
+  const localized = EN_TOOL_TEXT[normalizeToolNameKey(tool.name)]
+  return localized?.description ?? tool.description
+}
+
+function localizeToolReason(tool: ToolDatasetItem, query: string, locale: SupportedLocale): string {
+  if (locale === "zh") {
+    const primaryUseCase = tool.use_cases[0] ?? "general AI tasks"
+    const primaryAudience = tool.target_users[0] ?? "general users"
+    return `${tool.name} 在“${primaryUseCase}”场景更匹配，尤其适合${primaryAudience}。`
+  }
+  const localized = EN_TOOL_TEXT[normalizeToolNameKey(tool.name)]
+  if (localized?.reason) {
+    return localized.reason
+  }
+  const primaryUseCase = tool.use_cases[0] ?? "general AI tasks"
+  const primaryAudience = tool.target_users[0] ?? "general users"
+  const normalizedQuery = query.trim()
+  if (normalizedQuery) {
+    return `${tool.name} matches the "${normalizedQuery}" scenario and is especially suited for ${primaryAudience} when working on ${primaryUseCase}.`
+  }
+  return `${tool.name} is a strong match for ${primaryUseCase}, especially for ${primaryAudience}.`
 }
 
 function extractJsonArray(text: string): RecommendItem[] {
@@ -587,12 +728,15 @@ function normalizeTextForMatch(text: string): string {
   return text.toLowerCase().replace(/\s+/g, "")
 }
 
-function getQueryReasonSuffix(query: string): string {
+function getQueryReasonSuffix(query: string, locale: SupportedLocale): string {
   const normalizedQuery = query.trim().toLowerCase()
   const matchedRule = QUERY_INTENT_REASON_RULES.find((rule) =>
     rule.keywords.some((keyword) => normalizedQuery.includes(keyword)),
   )
-  return matchedRule?.suffix ?? ""
+  if (!matchedRule) {
+    return ""
+  }
+  return locale === "zh" ? matchedRule.zh : matchedRule.en
 }
 
 function toTwoSentences(text: string): string {
@@ -610,7 +754,7 @@ function toTwoSentences(text: string): string {
   return parts.slice(0, 2).join("")
 }
 
-function withQueryContext(item: RecommendItem, query: string): RecommendItem {
+function withQueryContext(item: RecommendItem, query: string, locale: SupportedLocale): RecommendItem {
   const normalizedQuery = query.slice(0, QUERY_CONTEXT_MAX_LENGTH).trim()
   const baseReason = item.reason.trim().replace(/\s+/g, " ")
   const normalizedReason = normalizeTextForMatch(baseReason)
@@ -618,19 +762,32 @@ function withQueryContext(item: RecommendItem, query: string): RecommendItem {
   const hasQueryContext = normalizedQueryForMatch
     ? normalizedReason.includes(normalizedQueryForMatch)
     : true
-  const intentSuffix = getQueryReasonSuffix(normalizedQuery)
+  const intentSuffix = getQueryReasonSuffix(normalizedQuery, locale)
   const hasIntentSuffix = intentSuffix ? baseReason.includes(intentSuffix) : true
 
   let enhancedReason = baseReason
   const needsContextSentence = normalizedQuery && !hasQueryContext
-  if (needsContextSentence && !hasIntentSuffix && intentSuffix) {
-    enhancedReason = `${enhancedReason} 适用于“${normalizedQuery}”场景，${intentSuffix}。`
-  } else {
-    if (needsContextSentence) {
-      enhancedReason = `${enhancedReason} 适用于“${normalizedQuery}”场景。`
+  if (locale === "zh") {
+    if (needsContextSentence && !hasIntentSuffix && intentSuffix) {
+      enhancedReason = `${enhancedReason} 适用于“${normalizedQuery}”场景，${intentSuffix}。`
+    } else {
+      if (needsContextSentence) {
+        enhancedReason = `${enhancedReason} 适用于“${normalizedQuery}”场景。`
+      }
+      if (!hasIntentSuffix && intentSuffix) {
+        enhancedReason = `${enhancedReason} ${intentSuffix}。`
+      }
     }
-    if (!hasIntentSuffix && intentSuffix) {
-      enhancedReason = `${enhancedReason} ${intentSuffix}。`
+  } else {
+    if (needsContextSentence && !hasIntentSuffix && intentSuffix) {
+      enhancedReason = `${enhancedReason} It is suitable for the "${normalizedQuery}" scenario and is ${intentSuffix}.`
+    } else {
+      if (needsContextSentence) {
+        enhancedReason = `${enhancedReason} It is suitable for the "${normalizedQuery}" scenario.`
+      }
+      if (!hasIntentSuffix && intentSuffix) {
+        enhancedReason = `${enhancedReason} It is ${intentSuffix}.`
+      }
     }
   }
 
@@ -640,18 +797,33 @@ function withQueryContext(item: RecommendItem, query: string): RecommendItem {
   }
 }
 
-function buildFallbackRecommendations(query: string): RecommendItem[] {
-  return FALLBACK_RECOMMENDATIONS.map((item) => withQueryContext(item, query))
+function localizeFallbackRecommendations(locale: SupportedLocale): RecommendItem[] {
+  if (locale === "zh") {
+    return FALLBACK_RECOMMENDATIONS
+  }
+  return FALLBACK_RECOMMENDATIONS.map((item) => {
+    const localized = EN_TOOL_TEXT[normalizeToolNameKey(item.name)]
+    return {
+      ...item,
+      desc: localized?.description ?? item.desc,
+      reason: localized?.reason ?? item.reason,
+      tags: localizeTags(item.tags, locale),
+    }
+  })
 }
 
-function normalizeRecommendations(recommendations: RecommendItem[], query: string): RecommendItem[] {
+function buildFallbackRecommendations(query: string, locale: SupportedLocale): RecommendItem[] {
+  return localizeFallbackRecommendations(locale).map((item) => withQueryContext(item, query, locale))
+}
+
+function normalizeRecommendations(recommendations: RecommendItem[], query: string, locale: SupportedLocale): RecommendItem[] {
   const cleaned = recommendations
     .map((item) => ({
       name: item.name.trim(),
       desc: item.desc.trim(),
       reason: item.reason.trim(),
       link: item.link,
-      tags: normalizeTags(item.tags, item.name),
+      tags: localizeTags(normalizeTags(item.tags, item.name), locale),
     }))
     .filter((item) => item.name && item.desc && item.reason)
     .filter((item) => !isTraditionalTool(item.name))
@@ -678,9 +850,9 @@ function normalizeRecommendations(recommendations: RecommendItem[], query: strin
     return a.index - b.index
   })
 
-  const result = sorted.map((entry) => withQueryContext(entry.item, query))
+  const result = sorted.map((entry) => withQueryContext(entry.item, query, locale))
   const existing = new Set(result.map((item) => item.name.toLowerCase()))
-  for (const fallback of buildFallbackRecommendations(query)) {
+  for (const fallback of buildFallbackRecommendations(query, locale)) {
     if (result.length >= 3) {
       break
     }
@@ -693,12 +865,37 @@ function normalizeRecommendations(recommendations: RecommendItem[], query: strin
   return result.slice(0, 3)
 }
 
+function textDominantLanguage(text: string): SupportedLocale | null {
+  const cjkCount = (text.match(CJK_CHAR_REGEX) ?? []).length
+  const latinCount = (text.match(LATIN_CHAR_REGEX) ?? []).length
+  // No alphabetic or CJK characters => no dominant language signal.
+  if (cjkCount === 0 && latinCount === 0) return null
+  // Use asymmetric thresholds to reduce false mismatch detection on mixed-language text.
+  // 0.6 makes zh classification easier (helps when zh output contains some English tool names),
+  // while 2.0 makes en classification stricter (avoids false en detection from sparse Latin text).
+  if (cjkCount > latinCount * CJK_DOMINANT_RATIO_THRESHOLD) return "zh"
+  // latinCount must exceed cjkCount * 2.0 to classify as en.
+  if (latinCount > cjkCount * LATIN_DOMINANT_RATIO_THRESHOLD) return "en"
+  return null
+}
+
+function isRecommendationLocaleMatch(recommendations: RecommendItem[], locale: SupportedLocale): boolean {
+  if (recommendations.length === 0) return true
+  const text = recommendations
+    .flatMap((item) => [item.desc, item.reason, ...(Array.isArray(item.tags) ? item.tags : [])])
+    .join(" ")
+  const dominant = textDominantLanguage(text)
+  if (!dominant) return true
+  return dominant === locale
+}
+
 export async function POST(request: Request) {
   const body = (await request.json().catch((error) => {
     console.error("Failed to parse request body. Expected JSON body with a query field:", error)
     return null
   })) as RecommendRequest | null
   const query = body?.query?.trim()
+  const locale = parseLocale(body?.locale)
   if (!query) {
     return NextResponse.json({ error: "Invalid query" }, { status: 400 })
   }
@@ -727,19 +924,31 @@ export async function POST(request: Request) {
           ...topTools.filter((item) => !rankedSet.has(item.name.toLowerCase())),
         ].slice(0, 3)
 
-        return NextResponse.json(normalizeRecommendations(mergedTools.map(toRecommendItem), safeQuery).slice(0, 3))
+        return NextResponse.json(
+          normalizeRecommendations(
+            mergedTools.map((tool) => toRecommendItem(tool, safeQuery, locale)),
+            safeQuery,
+            locale,
+          ).slice(0, 3),
+        )
       }
     }
 
-    const refined = await refineTopToolsWithLLM(safeQuery, topTools)
+    const refined = await refineTopToolsWithLLM(safeQuery, topTools, locale)
     if (refined) {
-      const normalized = normalizeRecommendations(refined, safeQuery)
+      const normalized = normalizeRecommendations(refined, safeQuery, locale)
       if (normalized.length > 0) {
         return NextResponse.json(normalized.slice(0, 3))
       }
     }
 
-    return NextResponse.json(normalizeRecommendations(topTools.map(toRecommendItem), safeQuery).slice(0, 3))
+    return NextResponse.json(
+      normalizeRecommendations(
+        topTools.map((tool) => toRecommendItem(tool, safeQuery, locale)),
+        safeQuery,
+        locale,
+      ).slice(0, 3),
+    )
   } catch (error) {
     console.error("Embedding recommendation failed, fallback to existing logic:", error)
   }
@@ -747,8 +956,26 @@ export async function POST(request: Request) {
   try {
     const apiKey = process.env.ZHIPU_API_KEY
     if (!apiKey) {
-      return NextResponse.json(buildFallbackRecommendations(safeQuery).slice(0, 3))
+      return NextResponse.json(buildFallbackRecommendations(safeQuery, locale).slice(0, 3))
     }
+
+    const requestBody = {
+      model: "glm-4",
+      temperature: 0.7,
+      messages: [
+        {
+          role: "system",
+          content: getSystemPrompt(locale),
+        },
+        {
+          role: "user",
+          content:
+            locale === "zh"
+              ? `具体需求（JSON 字符串）：${JSON.stringify(safeQuery)}\n请根据这个具体需求，推荐 3 个工具，并解释为什么这个工具适合满足这个需求。返回如下格式的 JSON 数组：[{"name":"工具名","desc":"一句话介绍","reason":"推荐理由","tags":["标签1","标签2"]}]。每个工具必须包含 2~4 个 tags，且 tags 必须是用户视角的人群/场景标签（如 新手友好、中文友好、开发者、设计师、免费可用）。`
+              : `User request (JSON string): ${JSON.stringify(safeQuery)}\nRecommend exactly 3 tools for this request and explain why each fits. Return JSON array in this format: [{"name":"Tool Name","desc":"One-sentence description","reason":"Recommendation reason","tags":["Tag1","Tag2"]}]. Each tool must have 2-4 tags, and tags must be user-centric audience/context labels (such as Beginner-friendly, Chinese-friendly, Developers, Designers, Free).`,
+        },
+      ],
+    } as const
 
     const zhipuResponse = await fetch(ZHIPU_API_URL, {
       method: "POST",
@@ -757,26 +984,13 @@ export async function POST(request: Request) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model: "glm-4",
-        temperature: 0.7,
-        messages: [
-          {
-            role: "system",
-            content: SYSTEM_PROMPT,
-          },
-          {
-            role: "user",
-            content: `具体需求（JSON 字符串）：${JSON.stringify(safeQuery)}\n请根据这个具体需求，推荐 3 个工具，并解释为什么这个工具适合满足这个需求。返回如下格式的 JSON 数组：[{"name":"工具名","desc":"一句话介绍","reason":"推荐理由","tags":["标签1","标签2"]}]。每个工具必须包含 2~4 个 tags，且 tags 必须是用户视角的人群/场景标签（如 新手友好、中文友好、开发者、设计师、免费可用）。`,
-          },
-        ],
-      }),
+      body: JSON.stringify(requestBody),
     })
 
     if (!zhipuResponse.ok) {
       const errorText = await zhipuResponse.text()
       console.error(`Zhipu API request failed: ${zhipuResponse.status} ${errorText}`)
-      return NextResponse.json(buildFallbackRecommendations(safeQuery).slice(0, 3))
+      return NextResponse.json(buildFallbackRecommendations(safeQuery, locale).slice(0, 3))
     }
 
     const completion = (await zhipuResponse.json()) as ZhipuChatResponse
@@ -786,11 +1000,45 @@ export async function POST(request: Request) {
       throw new Error("Empty model response")
     }
 
-    const recommendations = normalizeRecommendations(extractJsonArrayFromContent(content), safeQuery)
+    let recommendations = normalizeRecommendations(extractJsonArrayFromContent(content), safeQuery, locale)
+    if (!isRecommendationLocaleMatch(recommendations, locale)) {
+      const retryResponse = await fetch(ZHIPU_API_URL, {
+        method: "POST",
+        signal: AbortSignal.timeout(ZHIPU_API_TIMEOUT_MS),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          ...requestBody,
+          messages: [
+            ...requestBody.messages,
+            {
+              role: "assistant",
+              content,
+            },
+            {
+              role: "user",
+              content:
+                locale === "zh"
+                  ? "你的上一次输出语言不符合 locale=zh。请保持 JSON 结构不变，把 desc/reason/tags 全部改写为简体中文后重新输出。"
+                  : "Your previous output did not match locale=en. Keep the same JSON schema and rewrite desc/reason/tags fully in English.",
+            },
+          ],
+        }),
+      })
+      if (retryResponse.ok) {
+        const retryCompletion = (await retryResponse.json()) as ZhipuChatResponse
+        const retryContent = retryCompletion.choices?.[0]?.message?.content?.trim()
+        if (retryContent) {
+          recommendations = normalizeRecommendations(extractJsonArrayFromContent(retryContent), safeQuery, locale)
+        }
+      }
+    }
 
     return NextResponse.json(recommendations)
   } catch (error) {
     console.error("Error in /api/recommend fallback:", error)
-    return NextResponse.json(buildFallbackRecommendations(safeQuery).slice(0, 3))
+    return NextResponse.json(buildFallbackRecommendations(safeQuery, locale).slice(0, 3))
   }
 }
