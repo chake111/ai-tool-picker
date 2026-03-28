@@ -85,14 +85,21 @@ export function ComparePanel({ tools, onRemove, onClear }: ComparePanelProps) {
   }
 
   return (
-    <aside className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90">
+    <aside
+      className={`fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90 ${
+        hasEnoughTools ? "border-primary/50 shadow-[0_-8px_24px_rgba(14,165,233,0.18)]" : "border-border"
+      }`}
+    >
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold text-foreground">
               工具对比（{tools.length}/3）
             </h3>
-            {!hasEnoughTools && (
+            {tools.length === 1 && (
+              <span className="text-xs text-primary">已选择 1 个工具，再选一个即可开始对比</span>
+            )}
+            {!hasEnoughTools && tools.length !== 1 && (
               <span className="text-xs text-muted-foreground">再选择至少 1 个工具开始对比</span>
             )}
           </div>
