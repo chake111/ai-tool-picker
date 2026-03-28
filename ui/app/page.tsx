@@ -29,6 +29,8 @@ const HISTORY_LIMIT = 10
 const FAVORITES_LIMIT = 30
 const MAX_COMPARE_TOOLS = 3
 const AI_KEYWORD_REGEX = /(?:\bai\b|人工智能|大模型|生成式|llm|gpt|copilot|智能)/i
+const LOADING_SIMULATION_DELAY_MS = 350
+const FAVORITE_ANIMATION_DURATION_MS = 250
 const POPULAR_TOOLS: RecommendItem[] = [
   {
     name: "ChatGPT",
@@ -75,9 +77,12 @@ const POPULAR_TOOLS: RecommendItem[] = [
 ]
 
 const pickRandomTools = (tools: RecommendItem[], count: number): RecommendItem[] => {
-  return [...tools]
-    .sort(() => Math.random() - 0.5)
-    .slice(0, Math.min(count, tools.length))
+  const shuffled = [...tools]
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled.slice(0, Math.min(count, shuffled.length))
 }
 
 const buildNextHistory = (currentHistory: SearchHistoryItem[], query: string): SearchHistoryItem[] => {
@@ -237,7 +242,7 @@ export default function Home() {
       setCompareLimitHint("")
       setLastSearchedQuery("热门工具")
       setResults([])
-      await new Promise((resolve) => setTimeout(resolve, 350))
+      await new Promise((resolve) => setTimeout(resolve, LOADING_SIMULATION_DELAY_MS))
       setResults(pickRandomTools(POPULAR_TOOLS, 3))
       setIsLoading(false)
       return
@@ -304,7 +309,7 @@ export default function Home() {
       if (exists) {
         setFavoriteLimitHint("")
         setFavoriteAnimatingTool(item.name)
-        setTimeout(() => setFavoriteAnimatingTool(""), 250)
+        setTimeout(() => setFavoriteAnimatingTool(""), FAVORITE_ANIMATION_DURATION_MS)
         return prev.filter((tool) => tool.name !== item.name)
       }
       if (prev.length >= FAVORITES_LIMIT) {
@@ -313,7 +318,7 @@ export default function Home() {
       }
       setFavoriteLimitHint("")
       setFavoriteAnimatingTool(item.name)
-      setTimeout(() => setFavoriteAnimatingTool(""), 250)
+      setTimeout(() => setFavoriteAnimatingTool(""), FAVORITE_ANIMATION_DURATION_MS)
       return [
         {
           name: item.name,
@@ -503,7 +508,7 @@ export default function Home() {
               </div>
 
               {favorites.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No favorites yet. Click ❤️ to save tools</p>
+                <p className="text-xs text-muted-foreground">No favorites yet. Click the heart icon (❤️) to save tools</p>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {sortedFavorites.map((favorite) => (
