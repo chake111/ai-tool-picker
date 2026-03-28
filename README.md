@@ -96,6 +96,47 @@ Enter your goal in natural language, then review the recommendation card:
   - Why choose it: fast code generation, debugging support, and IDE integration
   - Best for: `Developers` `Indie Hackers` `Engineering Teams`
 
+## 🔐 NextAuth (Google) in App Router API
+
+In App Router API (`app/api/**/route.ts`), get the current login session with:
+
+```ts
+const session = await getServerSession(authOptions)
+```
+
+Then read `userId` from:
+
+```ts
+const userId = session?.user?.id
+```
+
+This project sets `session.user.id` in `/home/runner/work/ai-tool-picker/ai-tool-picker/ui/lib/auth.ts` via the NextAuth callbacks.
+
+Complete TypeScript example:
+
+```ts
+import { getServerSession } from "next-auth"
+import { NextResponse } from "next/server"
+import { authOptions } from "@/lib/auth"
+
+export async function GET() {
+  const session = await getServerSession(authOptions)
+
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  return NextResponse.json({
+    userId: session.user.id,
+    user: {
+      name: session.user.name ?? null,
+      email: session.user.email ?? null,
+      image: session.user.image ?? null,
+    },
+  })
+}
+```
+
 ## 🌐 Deployment
 
 You can deploy quickly on [Vercel](https://vercel.com/):
