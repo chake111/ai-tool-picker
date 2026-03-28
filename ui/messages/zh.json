@@ -31,8 +31,10 @@
       "write": "写作"
     },
     "loading": "正在为你寻找最佳工具...",
-    "found": "为 \"{query}\" 找到 {count} 个工具",
+    "resultsTitle": "推荐结果",
+    "resultsSubtitle": "本次搜索返回",
     "queryFallback": "关键词",
+    "noResults": "本次搜索没有匹配结果",
     "emptyHint": "试试输入：做PPT、写文案、画图、写代码...",
     "popularTools": "热门工具"
   },
@@ -47,10 +49,9 @@
     }
   },
   "favorites": {
-    "title": "我的工具库",
+    "title": "我的收藏",
     "countAria": "{count} 个工具",
-    "countSuffix": " 个工具",
-    "subtitle": "收藏列表与搜索和对比功能独立，可随时取消收藏",
+    "subtitle": "仅你可见，长期保存",
     "storageAria": "收藏存储位置：{where}",
     "storage": {
       "account": "已保存到你的账户",
@@ -62,7 +63,7 @@
       "ai": "按 AI 类型",
       "scenario": "按使用场景"
     },
-    "empty": "暂无收藏，点击心形图标 (❤️) 即可收藏工具",
+    "empty": "你还没有收藏工具",
     "remove": "取消收藏",
     "removeOne": "取消收藏 {name}",
     "add": "收藏",
