@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Heart, Search } from "lucide-react"
 import { signIn, signOut, useSession } from "next-auth/react"
 import { useLocale, useTranslations } from "next-intl"
@@ -182,6 +182,8 @@ export default function Home() {
   const [favoriteLimitHint, setFavoriteLimitHint] = useState("")
   const [favoritesHydrated, setFavoritesHydrated] = useState(false)
   const [lastSearchedQuery, setLastSearchedQuery] = useState("")
+  const [historyCollapsed, setHistoryCollapsed] = useState(true)
+  const [favoritesCollapsed, setFavoritesCollapsed] = useState(true)
   const [activeFilters, setActiveFilters] = useState<HomeFilters>({
     free: false,
     paid: false,
@@ -190,6 +192,7 @@ export default function Home() {
     chinese: false,
   })
   const [favoriteAnimatingTool, setFavoriteAnimatingTool] = useState("")
+  const resultsTitleRef = useRef<HTMLDivElement>(null)
   const resultRankMap = useMemo(() => {
     return new Map(results.map((item, index) => [item.name, index]))
   }, [results])
@@ -317,6 +320,12 @@ export default function Home() {
     localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites))
   }, [favorites, favoritesHydrated, isLoggedIn, sessionStatus])
 
+  useEffect(() => {
+    if (!isLoading && results.length > 0) {
+      resultsTitleRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
+  }, [isLoading, results.length])
+
   const saveHistory = (inputQuery: string) => {
     const normalizedQuery = inputQuery.trim()
     if (!normalizedQuery) return
@@ -325,7 +334,6 @@ export default function Home() {
       if (prev[0]?.query === normalizedQuery) {
         return prev
       }
-
       const nextHistory = buildNextHistory(prev, normalizedQuery)
       localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(nextHistory))
       return nextHistory
@@ -410,6 +418,7 @@ export default function Home() {
 
   const handleClearHistory = () => {
     setHistory([])
+    setHistoryCollapsed(true)
     localStorage.removeItem(HISTORY_STORAGE_KEY)
   }
 
@@ -573,23 +582,30 @@ export default function Home() {
             loadingLabel={t("common.thinking")}
           />
 
-          <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">{t("home.history.title")}</p>
-              {history.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleClearHistory}
-                  className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  {t("home.history.clear")}
-                </button>
-              )}
-            </div>
-            {history.length === 0 ? (
-              <p className="text-xs text-muted-foreground">{t("home.history.empty")}</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
+          {history.length > 0 && (
+            <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-muted-foreground">{t("home.history.title")}</p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleClearHistory}
+                    className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    {t("home.history.clear")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHistoryCollapsed((prev) => !prev)}
+                    className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+                    aria-expanded={!historyCollapsed}
+                    aria-controls="history-panel"
+                  >
+                    {historyCollapsed ? t("common.expand") : t("common.collapse")}
+                  </button>
+                </div>
+              </div>
+              <div id="history-panel" className={cn("mt-2 flex flex-wrap gap-2", historyCollapsed && "hidden")}>
                 {history.map((item) => (
                   <button
                     key={`${item.query}-${item.timestamp}`}
@@ -601,34 +617,36 @@ export default function Home() {
                   </button>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-            <p className="text-xs text-muted-foreground">{t("filters.title")}</p>
-            {FILTER_OPTIONS.map((filter) => {
-              const selected = activeFilters[filter.key as keyof typeof activeFilters]
-              const isPriceFilter = filter.group === "price"
-              return (
-                <button
-                  key={filter.key}
-                  type="button"
-                  onClick={() => handleFilterToggle(filter.key as keyof typeof activeFilters)}
-                  className={cn(
-                    "rounded-full border px-3 py-1 text-xs transition-colors",
-                    selected
-                      ? "border-foreground bg-foreground text-background"
-                      : "border-border bg-background text-foreground hover:bg-muted",
-                  )}
-                  aria-pressed={selected}
-                  role={isPriceFilter ? "radio" : undefined}
-                  aria-checked={isPriceFilter ? selected : undefined}
-                >
-                  {t(`filters.options.${filter.key}`)}
-                </button>
-              )
-            })}
-          </div>
+          {results.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+              <p className="text-xs text-muted-foreground">{t("filters.title")}</p>
+              {FILTER_OPTIONS.map((filter) => {
+                const selected = activeFilters[filter.key as keyof typeof activeFilters]
+                const isPriceFilter = filter.group === "price"
+                return (
+                  <button
+                    key={filter.key}
+                    type="button"
+                    onClick={() => handleFilterToggle(filter.key as keyof typeof activeFilters)}
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-xs transition-colors",
+                      selected
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-border bg-background text-foreground hover:bg-muted",
+                    )}
+                    aria-pressed={selected}
+                    role={isPriceFilter ? "radio" : undefined}
+                    aria-checked={isPriceFilter ? selected : undefined}
+                  >
+                    {t(`filters.options.${filter.key}`)}
+                  </button>
+                )
+              })}
+            </div>
+          )}
 
           {favoriteLimitHint && (
             <div
@@ -640,103 +658,112 @@ export default function Home() {
             </div>
           )}
 
-          <div className="rounded-xl border border-border/70 bg-muted/30 p-3 sm:p-4">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                       <Heart className="size-4 text-rose-500" aria-hidden="true" />
-                       <span>{t("favorites.title")}</span>
-                       <Badge
-                         variant="secondary"
-                         aria-label={t("favorites.countAria", { count: favorites.length })}
-                         className="font-semibold"
-                       >
-                         {t("favorites.countDisplay", { count: favorites.length })}
-                       </Badge>
-                     </p>
-                     <p className="text-xs text-muted-foreground">{t("favorites.subtitle")}</p>
-                     <p
-                      className="text-xs text-muted-foreground"
-                      aria-label={t("favorites.storageAria", {
-                        where: isLoggedIn ? t("favorites.storage.account") : t("favorites.storage.local"),
-                      })}
+          {favorites.length > 0 && (
+            <div className="rounded-xl border border-border/70 bg-muted/30 p-3 sm:p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                    <Heart className="size-4 text-rose-500" aria-hidden="true" />
+                    <span>{t("favorites.title")}</span>
+                    <Badge
+                      variant="secondary"
+                      aria-label={t("favorites.countAria", { count: favorites.length })}
+                      className="font-semibold"
                     >
-                      {isLoggedIn ? t("favorites.storage.account") : t("favorites.storage.local")}
-                    </p>
-                  </div>
-                <select
-                  value={favoriteSortMode}
-                  onChange={(event) => setFavoriteSortMode(event.target.value as "name" | "ai" | "scenario")}
-                  className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
-                  aria-label={t("favorites.sortAria")}
-                >
-                  <option value="name">{t("favorites.sort.name")}</option>
-                  <option value="ai">{t("favorites.sort.ai")}</option>
-                  <option value="scenario">{t("favorites.sort.scenario")}</option>
-                </select>
+                      {t("favorites.countDisplay", { count: favorites.length })}
+                    </Badge>
+                  </p>
+                  <p className="text-xs text-muted-foreground">{t("favorites.subtitle")}</p>
+                  <p
+                    className="text-xs text-muted-foreground"
+                    aria-label={t("favorites.storageAria", {
+                      where: isLoggedIn ? t("favorites.storage.account") : t("favorites.storage.local"),
+                    })}
+                  >
+                    {isLoggedIn ? t("favorites.storage.account") : t("favorites.storage.local")}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={favoriteSortMode}
+                    onChange={(event) => setFavoriteSortMode(event.target.value as "name" | "ai" | "scenario")}
+                    className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
+                    aria-label={t("favorites.sortAria")}
+                  >
+                    <option value="name">{t("favorites.sort.name")}</option>
+                    <option value="ai">{t("favorites.sort.ai")}</option>
+                    <option value="scenario">{t("favorites.sort.scenario")}</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setFavoritesCollapsed((prev) => !prev)}
+                    className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+                    aria-expanded={!favoritesCollapsed}
+                    aria-controls="favorites-panel"
+                  >
+                    {favoritesCollapsed ? t("common.expand") : t("common.collapse")}
+                  </button>
+                </div>
               </div>
 
-              {favorites.length === 0 ? (
-                <p className="text-xs text-muted-foreground">{t("favorites.empty")}</p>
-              ) : (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {sortedFavorites.map((favorite) => (
-                    <Card key={`favorite-${favorite.name}`} className="rounded-lg border border-border bg-background p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-semibold text-foreground">{favorite.name}</p>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveFavorite(favorite.name)}
-                          className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-                          title={t("favorites.remove")}
-                          aria-label={t("favorites.removeOne", { name: favorite.name })}
-                        >
-                          {t("favorites.remove")}
-                        </button>
+              <div id="favorites-panel" className={cn("mt-3 grid gap-3 sm:grid-cols-2", favoritesCollapsed && "hidden")}>
+                {sortedFavorites.map((favorite) => (
+                  <Card key={`favorite-${favorite.name}`} className="rounded-lg border border-border bg-background p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-semibold text-foreground">{favorite.name}</p>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFavorite(favorite.name)}
+                        className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+                        title={t("favorites.remove")}
+                        aria-label={t("favorites.removeOne", { name: favorite.name })}
+                      >
+                        {t("favorites.remove")}
+                      </button>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground" title={favorite.desc}>
+                      {favorite.desc}
+                    </p>
+                    <p className="mt-2 text-xs text-foreground">{favorite.reason}</p>
+                    {Array.isArray(favorite.tags) && favorite.tags.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {favorite.tags.map((tag) => (
+                          <span
+                            key={`${favorite.name}-favorite-${tag}`}
+                            className="rounded-full border border-border/70 bg-muted px-2 py-0.5 text-[11px] text-foreground"
+                          >
+                            {tag}
+                          </span>
+                        ))}
                       </div>
-                      <p className="mt-1 text-xs text-muted-foreground" title={favorite.desc}>
-                        {favorite.desc}
-                      </p>
-                      <p className="mt-2 text-xs text-foreground">{favorite.reason}</p>
-                      {Array.isArray(favorite.tags) && favorite.tags.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {favorite.tags.map((tag) => (
-                            <span
-                              key={`${favorite.name}-favorite-${tag}`}
-                              className="rounded-full border border-border/70 bg-muted px-2 py-0.5 text-[11px] text-foreground"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
+                    )}
+                    <div className="mt-3">
+                      {favorite.link ? (
+                        <Button asChild size="sm" className="w-full sm:w-auto">
+                          <a
+                            href={favorite.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => {
+                              void track({
+                                action: "click",
+                                toolId: favorite.name,
+                                keyword: favorite.link,
+                              }).catch(() => {})
+                            }}
+                          >
+                            {t("common.visitWebsite")}
+                          </a>
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">{t("common.noWebsite")}</span>
                       )}
-                      <div className="mt-3">
-                        {favorite.link ? (
-                          <Button asChild size="sm" className="w-full sm:w-auto">
-                            <a
-                              href={favorite.link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={() => {
-                                void track({
-                                  action: "click",
-                                  toolId: favorite.name,
-                                  keyword: favorite.link,
-                                }).catch(() => {})
-                              }}
-                            >
-                              {t("common.visitWebsite")}
-                            </a>
-                          </Button>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">{t("common.noWebsite")}</span>
-                        )}
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              )}
+                    </div>
+                  </Card>
+                ))}
+              </div>
             </div>
+          )}
         </div>
 
         {/* 加载状态 */}
@@ -755,9 +782,9 @@ export default function Home() {
         )}
 
         {/* 结果列表 */}
-         {results.length > 0 && !isLoading && (
-            <div className="mt-6 w-full max-w-2xl border-t border-border/70 pt-6 flex flex-col gap-4">
-             <div className="flex flex-col gap-1">
+          {results.length > 0 && !isLoading && (
+             <div className="mt-6 w-full max-w-2xl border-t border-border/70 pt-6 flex flex-col gap-4">
+             <div ref={resultsTitleRef} className="flex flex-col gap-1">
                 <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
                   <Search className="size-4 text-primary" aria-hidden="true" />
                   <span>{t("home.resultsTitle")}</span>

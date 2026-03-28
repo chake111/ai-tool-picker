@@ -6,7 +6,9 @@
   "common": {
     "thinking": "思考中...",
     "visitWebsite": "访问官网",
-    "noWebsite": "暂无官网链接"
+    "noWebsite": "暂无官网链接",
+    "expand": "展开",
+    "collapse": "收起"
   },
   "auth": {
     "loginWithGoogle": "使用 Google 登录",
