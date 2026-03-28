@@ -12,6 +12,7 @@ import { ComparePanel } from "@/components/compare-panel"
 import type { RecommendItem } from "@/lib/recommend"
 import { cn } from "@/lib/utils"
 import { sanitizeFavoriteItem, type FavoriteItem } from "@/lib/favorites-store"
+import { trackEvent } from "@/lib/track"
 
 type SearchHistoryItem = {
   query: string
@@ -289,6 +290,10 @@ export default function Home() {
     }
 
     saveHistory(normalizedQuery)
+    void trackEvent({
+      event: "search",
+      query: normalizedQuery,
+    }).catch(() => {})
     setIsLoading(true)
     setError("")
     setResults([])
@@ -344,8 +349,15 @@ export default function Home() {
   const isToolFavorited = (toolName: string) => favorites.some((tool) => tool.name === toolName)
 
   const handleFavoriteToggle = (item: RecommendItem) => {
+    const exists = favorites.some((tool) => tool.name === item.name)
+    const action = exists ? "remove" : "add"
+    void trackEvent({
+      event: "favorite",
+      toolName: item.name,
+      action,
+    }).catch(() => {})
+
     setFavorites((prev) => {
-      const exists = prev.some((tool) => tool.name === item.name)
       if (exists) {
         setFavoriteLimitHint("")
         setFavoriteAnimatingTool(item.name)
@@ -618,7 +630,18 @@ export default function Home() {
                       <div className="mt-3">
                         {favorite.link ? (
                           <Button asChild size="sm" className="w-full sm:w-auto">
-                            <a href={favorite.link} target="_blank" rel="noopener noreferrer">
+                            <a
+                              href={favorite.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={() => {
+                                void trackEvent({
+                                  event: "click",
+                                  toolName: favorite.name,
+                                  targetUrl: favorite.link ?? "",
+                                }).catch(() => {})
+                              }}
+                            >
                               访问官网
                             </a>
                           </Button>
@@ -727,7 +750,18 @@ export default function Home() {
                      <p className="mt-3 text-sm text-foreground">{item.reason}</p>
                   <div className="mt-5">
                     <Button asChild className="w-full sm:w-auto">
-                      <a href={item.link} target="_blank" rel="noopener noreferrer">
+                      <a
+                        href={item.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => {
+                          void trackEvent({
+                            event: "click",
+                            toolName: item.name,
+                            targetUrl: item.link,
+                          }).catch(() => {})
+                        }}
+                      >
                         访问官网
                       </a>
                     </Button>
