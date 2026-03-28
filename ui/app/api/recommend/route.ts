@@ -58,6 +58,8 @@ const OPENAI_EMBEDDING_MODEL = "text-embedding-3-small"
 const AI_DETAIL_KEYWORD_REGEX = /(?:\bai\b|人工智能|大模型|生成式|llm|gpt|copilot|智能)/i
 const CJK_CHAR_REGEX = /[\u3400-\u9FFF]/g
 const LATIN_CHAR_REGEX = /[A-Za-z]/g
+const CJK_DOMINANT_RATIO_THRESHOLD = 0.6
+const LATIN_DOMINANT_RATIO_THRESHOLD = 2
 const MAX_DESC_WORDS = 25
 const QUERY_CONTEXT_MAX_LENGTH = 120
 const QUERY_INTENT_REASON_RULES = [
@@ -224,7 +226,17 @@ const SYSTEM_PROMPT_SECTIONS = [
 ] as const
 
 function parseLocale(rawLocale: unknown): SupportedLocale {
+  if (rawLocale == null) {
+    return "en"
+  }
+  if (typeof rawLocale !== "string") {
+    return "en"
+  }
   return rawLocale === "zh" ? "zh" : "en"
+}
+
+function normalizeToolNameKey(toolName: string): string {
+  return toolName.trim().toLowerCase()
 }
 
 function getSystemPrompt(locale: SupportedLocale): string {
@@ -624,7 +636,7 @@ function localizeToolDescription(tool: ToolDatasetItem, locale: SupportedLocale)
   if (locale === "zh") {
     return tool.description
   }
-  const localized = EN_TOOL_TEXT[tool.name.toLowerCase()]
+  const localized = EN_TOOL_TEXT[normalizeToolNameKey(tool.name)]
   return localized?.description ?? tool.description
 }
 
@@ -634,7 +646,7 @@ function localizeToolReason(tool: ToolDatasetItem, query: string, locale: Suppor
     const primaryAudience = tool.target_users[0] ?? "general users"
     return `${tool.name} 在“${primaryUseCase}”场景更匹配，尤其适合${primaryAudience}。`
   }
-  const localized = EN_TOOL_TEXT[tool.name.toLowerCase()]
+  const localized = EN_TOOL_TEXT[normalizeToolNameKey(tool.name)]
   if (localized?.reason) {
     return localized.reason
   }
@@ -642,7 +654,7 @@ function localizeToolReason(tool: ToolDatasetItem, query: string, locale: Suppor
   const primaryAudience = tool.target_users[0] ?? "general users"
   const normalizedQuery = query.trim()
   if (normalizedQuery) {
-    return `${tool.name} matches the "${normalizedQuery}" scenario, especially for ${primaryAudience} in ${primaryUseCase}.`
+    return `${tool.name} matches the "${normalizedQuery}" scenario and is especially suited for ${primaryAudience} when working on ${primaryUseCase}.`
   }
   return `${tool.name} is a strong match for ${primaryUseCase}, especially for ${primaryAudience}.`
 }
@@ -790,7 +802,7 @@ function localizeFallbackRecommendations(locale: SupportedLocale): RecommendItem
     return FALLBACK_RECOMMENDATIONS
   }
   return FALLBACK_RECOMMENDATIONS.map((item) => {
-    const localized = EN_TOOL_TEXT[item.name.toLowerCase()]
+    const localized = EN_TOOL_TEXT[normalizeToolNameKey(item.name)]
     return {
       ...item,
       desc: localized?.description ?? item.desc,
@@ -856,9 +868,14 @@ function normalizeRecommendations(recommendations: RecommendItem[], query: strin
 function textDominantLanguage(text: string): SupportedLocale | null {
   const cjkCount = (text.match(CJK_CHAR_REGEX) ?? []).length
   const latinCount = (text.match(LATIN_CHAR_REGEX) ?? []).length
+  // No alphabetic or CJK characters => no dominant language signal.
   if (cjkCount === 0 && latinCount === 0) return null
-  if (cjkCount > latinCount * 0.6) return "zh"
-  if (latinCount > cjkCount * 2) return "en"
+  // Use asymmetric thresholds to reduce false mismatch detection on mixed-language text.
+  // 0.6 makes zh classification easier (helps when zh output contains some English tool names),
+  // while 2.0 makes en classification stricter (avoids false en detection from sparse Latin text).
+  if (cjkCount > latinCount * CJK_DOMINANT_RATIO_THRESHOLD) return "zh"
+  // latinCount must exceed cjkCount * 2.0 to classify as en.
+  if (latinCount > cjkCount * LATIN_DOMINANT_RATIO_THRESHOLD) return "en"
   return null
 }
 
@@ -996,6 +1013,10 @@ export async function POST(request: Request) {
           ...requestBody,
           messages: [
             ...requestBody.messages,
+            {
+              role: "assistant",
+              content,
+            },
             {
               role: "user",
               content:
