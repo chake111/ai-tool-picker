@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server"
-import type { RecommendItem } from "@/lib/recommend"
+import type {
+  RankedTool,
+  RecommendItem,
+  ToolEmbeddingRecord,
+  UserBehaviorPayload,
+  UserEmbeddingProfile,
+} from "@/lib/recommend"
+import { USER_BEHAVIOR_WEIGHTS, cosineSimilarity } from "@/lib/recommend"
 
 type RecommendRequest = {
   query: string
@@ -13,8 +20,38 @@ type ZhipuChatResponse = {
   }>
 }
 
+type ZhipuEmbeddingResponse = {
+  data?: Array<{
+    embedding?: number[]
+  }>
+}
+
+type OpenAIEmbeddingResponse = {
+  data?: Array<{
+    embedding?: number[]
+  }>
+}
+
+type ToolDatasetItem = {
+  name: string
+  description: string
+  tags: string[]
+  use_cases: string[]
+  target_users: string[]
+  link: string
+}
+
+type ToolEmbeddingItem = {
+  tool: ToolDatasetItem
+  embedding: number[]
+}
+
 const ZHIPU_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+const ZHIPU_EMBEDDING_API_URL = "https://open.bigmodel.cn/api/paas/v4/embeddings"
+const OPENAI_EMBEDDING_API_URL = "https://api.openai.com/v1/embeddings"
 const ZHIPU_API_TIMEOUT_MS = 30_000
+const ZHIPU_EMBEDDING_MODEL = "embedding-3"
+const OPENAI_EMBEDDING_MODEL = "text-embedding-3-small"
 const AI_DETAIL_KEYWORD_REGEX = /(?:\bai\b|人工智能|大模型|生成式|llm|gpt|copilot|智能)/i
 const MAX_DESC_WORDS = 25
 const QUERY_CONTEXT_MAX_LENGTH = 120
@@ -40,6 +77,56 @@ const TAG_PRIORITY = [
   "通用场景",
 ] as const
 const LOW_VALUE_TAGS = new Set(["效率高", "功能强大", "AI工具", "易上手"])
+const TOOL_DATASET: ToolDatasetItem[] = [
+  {
+    name: "Gamma",
+    description: "AI 演示文稿工具，可根据主题自动生成结构化页面与视觉排版。",
+    tags: ["办公用户", "内容创作者", "新手友好"],
+    use_cases: ["制作PPT", "演示文稿设计", "路演方案展示"],
+    target_users: ["学生", "市场人员", "咨询顾问"],
+    link: "https://gamma.app",
+  },
+  {
+    name: "Tome",
+    description: "叙事型 AI 演示工具，能够快速生成故事线、页面内容与视觉布局。",
+    tags: ["内容创作者", "设计师", "办公用户"],
+    use_cases: ["故事化演示", "销售提案展示", "团队汇报"],
+    target_users: ["创业团队", "销售团队", "内容创作者"],
+    link: "https://tome.app",
+  },
+  {
+    name: "Notion AI",
+    description: "Notion 内置 AI 助手，支持写作、总结、改写与知识问答。",
+    tags: ["办公用户", "团队协作", "新手友好"],
+    use_cases: ["会议纪要总结", "草稿写作", "知识库问答"],
+    target_users: ["产品经理", "运营团队", "学生"],
+    link: "https://www.notion.so/product/ai",
+  },
+  {
+    name: "ChatGPT",
+    description: "通用型生成式 AI 助手，可用于内容创作、分析、代码与头脑风暴。",
+    tags: ["新手友好", "通用场景", "中文友好"],
+    use_cases: ["头脑风暴", "内容写作", "代码辅助"],
+    target_users: ["学生", "开发者", "市场人员"],
+    link: "https://chat.openai.com",
+  },
+  {
+    name: "Midjourney",
+    description: "AI 图像生成工具，可根据文本提示创作高质量视觉内容。",
+    tags: ["设计师", "英文环境", "专业用户"],
+    use_cases: ["插画生成", "广告创意图", "概念图设计"],
+    target_users: ["设计师", "广告从业者", "内容创作者"],
+    link: "https://www.midjourney.com",
+  },
+  {
+    name: "GitHub Copilot",
+    description: "面向开发者的 AI 编码助手，可生成代码、测试与注释建议。",
+    tags: ["开发者", "专业用户", "团队协作"],
+    use_cases: ["生成样板代码", "生成测试用例", "学习新接口"],
+    target_users: ["软件工程师", "计算机学生", "技术团队"],
+    link: "https://github.com/features/copilot",
+  },
+]
 const TRADITIONAL_SOFTWARE_BLOCKLIST = [
   /^powerpoint$/i,
   /^microsoft power ?point$/i,
@@ -111,11 +198,14 @@ const TOOL_OFFICIAL_LINKS: Record<string, string> = {
 const DEFAULT_TAGS_BY_TOOL: Record<string, string[]> = {
   chatgpt: ["新手友好", "通用场景"],
   midjourney: ["设计师", "英文环境"],
+  "github copilot": ["开发者", "专业用户"],
   "notion ai": ["办公用户", "团队协作"],
   gamma: ["办公用户", "内容创作者"],
   tome: ["内容创作者", "设计师"],
   "beautiful.ai": ["设计师", "办公用户"],
 }
+
+let toolEmbeddingCachePromise: Promise<ToolEmbeddingItem[]> | null = null
 
 function resolveToolLink(toolName: string): string {
   const trimmedName = toolName.trim()
@@ -125,6 +215,238 @@ function resolveToolLink(toolName: string): string {
     return officialLink
   }
   return `https://www.google.com/search?q=${encodeURIComponent(trimmedName)}`
+}
+
+function buildToolEmbeddingText(tool: ToolDatasetItem): string {
+  return [
+    tool.description,
+    `tags: ${tool.tags.join(", ")}`,
+    `use_cases: ${tool.use_cases.join(", ")}`,
+    `target_users: ${tool.target_users.join(", ")}`,
+  ].join("\n")
+}
+
+async function createEmbedding(input: string): Promise<number[]> {
+  const zhipuApiKey = process.env.ZHIPU_API_KEY
+  if (zhipuApiKey) {
+    const response = await fetch(ZHIPU_EMBEDDING_API_URL, {
+      method: "POST",
+      signal: AbortSignal.timeout(ZHIPU_API_TIMEOUT_MS),
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${zhipuApiKey}`,
+      },
+      body: JSON.stringify({
+        model: ZHIPU_EMBEDDING_MODEL,
+        input,
+      }),
+    })
+    if (response.ok) {
+      const data = (await response.json()) as ZhipuEmbeddingResponse
+      const embedding = data.data?.[0]?.embedding
+      if (Array.isArray(embedding) && embedding.length > 0) {
+        return embedding
+      }
+    } else {
+      const errorText = await response.text()
+      console.error(`Zhipu embedding request failed: ${response.status} ${errorText}`)
+    }
+  }
+
+  const openaiApiKey = process.env.OPENAI_API_KEY
+  if (!openaiApiKey) {
+    throw new Error("No embedding API key configured")
+  }
+
+  const openaiResponse = await fetch(OPENAI_EMBEDDING_API_URL, {
+    method: "POST",
+    signal: AbortSignal.timeout(ZHIPU_API_TIMEOUT_MS),
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${openaiApiKey}`,
+    },
+    body: JSON.stringify({
+      model: OPENAI_EMBEDDING_MODEL,
+      input,
+    }),
+  })
+  if (!openaiResponse.ok) {
+    const errorText = await openaiResponse.text()
+    throw new Error(`OpenAI embedding request failed: ${openaiResponse.status} ${errorText}`)
+  }
+  const openaiData = (await openaiResponse.json()) as OpenAIEmbeddingResponse
+  const openaiEmbedding = openaiData.data?.[0]?.embedding
+  if (!Array.isArray(openaiEmbedding) || openaiEmbedding.length === 0) {
+    throw new Error("Empty embedding from OpenAI")
+  }
+  return openaiEmbedding
+}
+
+async function getToolEmbeddings(): Promise<ToolEmbeddingItem[]> {
+  if (!toolEmbeddingCachePromise) {
+    toolEmbeddingCachePromise = Promise.all(
+      TOOL_DATASET.map(async (tool) => ({
+        tool,
+        embedding: await createEmbedding(buildToolEmbeddingText(tool)),
+      })),
+    )
+  }
+  try {
+    return await toolEmbeddingCachePromise
+  } catch (error) {
+    toolEmbeddingCachePromise = null
+    throw error
+  }
+}
+
+function topToolsByCosineSimilarity(queryEmbedding: number[], toolEmbeddings: ToolEmbeddingItem[], limit = 3): ToolDatasetItem[] {
+  return toolEmbeddings
+    .map((item) => ({
+      tool: item.tool,
+      score: cosineSimilarity(queryEmbedding, item.embedding),
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((item) => item.tool)
+}
+
+function toToolEmbeddingRecord(item: ToolEmbeddingItem): ToolEmbeddingRecord {
+  return {
+    toolId: item.tool.name,
+    title: item.tool.name,
+    description: item.tool.description,
+    embedding: item.embedding,
+    tags: item.tool.tags,
+  }
+}
+
+function weightedAverageEmbeddings(inputs: Array<{ embedding: number[]; weight: number }>): number[] {
+  if (!inputs.length) return []
+  const dimension = inputs[0].embedding.length
+  if (!dimension) return []
+
+  const sums = new Array(dimension).fill(0) as number[]
+  let totalWeight = 0
+
+  for (const input of inputs) {
+    if (input.weight <= 0 || input.embedding.length !== dimension) continue
+    totalWeight += input.weight
+    for (let i = 0; i < dimension; i += 1) {
+      sums[i] += input.embedding[i] * input.weight
+    }
+  }
+
+  if (totalWeight === 0) throw new Error("No valid weighted vectors for user embedding")
+  return sums.map((value) => value / totalWeight)
+}
+
+async function buildUserProfileEmbedding(
+  payload: UserBehaviorPayload,
+  toolEmbeddings: ToolEmbeddingItem[],
+): Promise<UserEmbeddingProfile | null> {
+  const searchKeywords = (payload.searchKeywords ?? []).map((item) => item.trim()).filter(Boolean)
+  const favoriteToolIds = (payload.favoriteToolIds ?? []).map((item) => item.trim()).filter(Boolean)
+
+  const vectors: Array<{ embedding: number[]; weight: number }> = []
+  for (const keyword of searchKeywords) {
+    vectors.push({ embedding: await createEmbedding(keyword), weight: USER_BEHAVIOR_WEIGHTS.search })
+  }
+
+  const toolMap = new Map(toolEmbeddings.map((item) => [item.tool.name.toLowerCase(), item.embedding]))
+  for (const toolId of favoriteToolIds) {
+    const embedding = toolMap.get(toolId.toLowerCase())
+    if (!embedding) continue
+    vectors.push({ embedding, weight: USER_BEHAVIOR_WEIGHTS.favorite })
+  }
+
+  const embedding = weightedAverageEmbeddings(vectors)
+  if (!embedding.length) return null
+
+  return {
+    userId: "session-user",
+    embedding,
+    eventCount: searchKeywords.length + favoriteToolIds.length,
+    updatedAt: Date.now(),
+  }
+}
+
+function rankToolsForUser(profile: UserEmbeddingProfile, toolRecords: ToolEmbeddingRecord[], limit = 3): RankedTool[] {
+  return toolRecords
+    .map((tool) => ({
+      toolId: tool.toolId,
+      score: cosineSimilarity(profile.embedding, tool.embedding),
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+}
+
+function toRecommendItem(tool: ToolDatasetItem): RecommendItem {
+  const primaryUseCase = tool.use_cases[0] ?? "general AI tasks"
+  const primaryAudience = tool.target_users[0] ?? "general users"
+  return {
+    name: tool.name,
+    desc: tool.description,
+    reason: `${tool.name} 在“${primaryUseCase}”场景更匹配，尤其适合${primaryAudience}。`,
+    link: tool.link,
+    tags: normalizeTags(tool.tags, tool.name),
+  }
+}
+
+function buildRefineUserPrompt(query: string, topTools: ToolDatasetItem[]): string {
+  const candidateTools = topTools.map((tool) => ({
+    name: tool.name,
+    description: tool.description,
+    tags: tool.tags,
+    use_cases: tool.use_cases,
+    target_users: tool.target_users,
+  }))
+
+  return `用户需求（JSON 字符串）：${JSON.stringify(query)}\n请只基于以下候选工具输出 3 个推荐（不能新增其他工具）：${JSON.stringify(
+    candidateTools,
+  )}\n返回 JSON 数组：[{"name":"工具名","desc":"一句话介绍","reason":"推荐理由","tags":["标签1","标签2"]}]`
+}
+
+async function refineTopToolsWithLLM(query: string, topTools: ToolDatasetItem[]): Promise<RecommendItem[] | null> {
+  const apiKey = process.env.ZHIPU_API_KEY
+  if (!apiKey) {
+    return null
+  }
+
+  const response = await fetch(ZHIPU_API_URL, {
+    method: "POST",
+    signal: AbortSignal.timeout(ZHIPU_API_TIMEOUT_MS),
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "glm-4",
+      temperature: 0.7,
+      messages: [
+        {
+          role: "system",
+          content: SYSTEM_PROMPT,
+        },
+        {
+          role: "user",
+          content: buildRefineUserPrompt(query, topTools),
+        },
+      ],
+    }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error(`Zhipu refine request failed: ${response.status} ${errorText}`)
+    return null
+  }
+
+  const completion = (await response.json()) as ZhipuChatResponse
+  const content = completion.choices?.[0]?.message?.content?.trim()
+  if (!content) {
+    return null
+  }
+  return extractJsonArrayFromContent(content)
 }
 
 function getDefaultTags(toolName: string): string[] {
@@ -380,7 +702,47 @@ export async function POST(request: Request) {
   if (!query) {
     return NextResponse.json({ error: "Invalid query" }, { status: 400 })
   }
+  const userBehavior = body && typeof body === "object" ? (body as RecommendRequest & UserBehaviorPayload) : null
   const safeQuery = query.replace(/[\u0000-\u001F\u007F]/g, " ").slice(0, 1000)
+
+  try {
+    const [queryEmbedding, toolEmbeddings] = await Promise.all([createEmbedding(safeQuery), getToolEmbeddings()])
+    const topTools = topToolsByCosineSimilarity(queryEmbedding, toolEmbeddings, 3)
+
+    if (userBehavior) {
+      const userProfile = await buildUserProfileEmbedding(userBehavior, toolEmbeddings)
+      if (userProfile) {
+        const rankedByUser = rankToolsForUser(
+          userProfile,
+          toolEmbeddings.map(toToolEmbeddingRecord),
+          3,
+        )
+        const toolByName = new Map(toolEmbeddings.map((item) => [item.tool.name.toLowerCase(), item.tool]))
+        const rankedTools = rankedByUser
+          .map((item) => toolByName.get(item.toolId.toLowerCase()))
+          .filter((item): item is ToolDatasetItem => !!item)
+        const rankedSet = new Set(rankedTools.map((item) => item.name.toLowerCase()))
+        const mergedTools = [
+          ...rankedTools,
+          ...topTools.filter((item) => !rankedSet.has(item.name.toLowerCase())),
+        ].slice(0, 3)
+
+        return NextResponse.json(normalizeRecommendations(mergedTools.map(toRecommendItem), safeQuery).slice(0, 3))
+      }
+    }
+
+    const refined = await refineTopToolsWithLLM(safeQuery, topTools)
+    if (refined) {
+      const normalized = normalizeRecommendations(refined, safeQuery)
+      if (normalized.length > 0) {
+        return NextResponse.json(normalized.slice(0, 3))
+      }
+    }
+
+    return NextResponse.json(normalizeRecommendations(topTools.map(toRecommendItem), safeQuery).slice(0, 3))
+  } catch (error) {
+    console.error("Embedding recommendation failed, fallback to existing logic:", error)
+  }
 
   try {
     const apiKey = process.env.ZHIPU_API_KEY
@@ -428,7 +790,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(recommendations)
   } catch (error) {
-    console.error("Error in /api/recommend:", error)
+    console.error("Error in /api/recommend fallback:", error)
     return NextResponse.json(buildFallbackRecommendations(safeQuery).slice(0, 3))
   }
 }

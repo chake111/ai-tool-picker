@@ -1,0 +1,28 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserEventAction {
+  search
+  favorite
+  click
+}
+
+model UserEvent {
+  id        BigInt          @id @default(autoincrement())
+  action    UserEventAction
+  toolId    String?         @map("tool_id")
+  keyword   String?
+  userId    String?         @map("user_id")
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  @@map("user_events")
+  @@index([action, createdAt], map: "user_events_action_created_at_idx")
+  @@index([userId, createdAt], map: "user_events_user_id_created_at_idx")
+  @@index([toolId, createdAt], map: "user_events_tool_id_created_at_idx")
+}

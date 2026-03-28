@@ -96,6 +96,96 @@ Enter your goal in natural language, then review the recommendation card:
   - Why choose it: fast code generation, debugging support, and IDE integration
   - Best for: `Developers` `Indie Hackers` `Engineering Teams`
 
+## 🧭 Embedding Recommendation Flow (Simple)
+
+This project supports a simple embedding-based recommendation flow focused on **data structures + process**:
+
+1. **Tool vectorization**
+   - Build embedding text from each tool's description, tags, use cases, and target users.
+   - Generate and cache tool embeddings in memory (`ToolEmbeddingRecord`).
+
+2. **User vectorization**
+   - Build a user profile vector from behavior input:
+     - `searchKeywords` (weight = 1)
+     - `favoriteToolIds` (weight = 3)
+   - Search keywords are embedded directly.
+   - Favorite tools reuse tool embeddings.
+   - Final user vector = weighted average of behavior vectors (`UserEmbeddingProfile`).
+
+3. **Similarity ranking**
+   - Compute cosine similarity between user vector and each tool vector.
+   - Rank tools by similarity score (`RankedTool`) and merge with query-based top tools.
+
+### Request payload (example)
+
+```json
+{
+  "query": "做一个融资路演PPT",
+  "searchKeywords": ["路演", "PPT", "演示文稿"],
+  "favoriteToolIds": ["Gamma", "Tome"]
+}
+```
+
+### Core structures
+
+```ts
+type ToolEmbeddingRecord = {
+  toolId: string
+  title: string
+  description: string
+  embedding: number[]
+  tags?: string[]
+}
+
+type UserEmbeddingProfile = {
+  userId: string
+  embedding: number[]
+  eventCount: number
+  updatedAt: number
+}
+```
+
+## 🔐 NextAuth (Google) in App Router API
+
+In App Router API (`app/api/**/route.ts`), get the current login session with:
+
+```ts
+const session = await getServerSession(authOptions)
+```
+
+Then read `userId` from:
+
+```ts
+const userId = session?.user?.id
+```
+
+This project sets `session.user.id` in `ui/lib/auth.ts` via the NextAuth callbacks.
+
+Complete TypeScript example:
+
+```ts
+import { getServerSession } from "next-auth"
+import { NextResponse } from "next/server"
+import { authOptions } from "@/lib/auth"
+
+export async function GET() {
+  const session = await getServerSession(authOptions)
+
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  return NextResponse.json({
+    userId: session.user.id,
+    user: {
+      name: session.user.name ?? null,
+      email: session.user.email ?? null,
+      image: session.user.image ?? null,
+    },
+  })
+}
+```
+
 ## 🌐 Deployment
 
 You can deploy quickly on [Vercel](https://vercel.com/):
