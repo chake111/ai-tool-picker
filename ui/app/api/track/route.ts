@@ -24,7 +24,12 @@ function isValidPayload(payload: unknown): payload is TrackPayload {
     return typeof candidate.keyword === "string" && candidate.keyword.trim().length > 0
   }
   if (candidate.event === "favorite") {
-    return typeof candidate.toolId === "string" && candidate.toolId.trim().length > 0
+    return (
+      typeof candidate.toolId === "string" &&
+      candidate.toolId.trim().length > 0 &&
+      typeof candidate.keyword === "string" &&
+      candidate.keyword.trim().length > 0
+    )
   }
   if (candidate.event === "click") {
     return typeof candidate.toolId === "string" && candidate.toolId.trim().length > 0
