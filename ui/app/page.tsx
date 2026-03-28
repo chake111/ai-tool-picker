@@ -23,6 +23,14 @@ type FavoriteItem = {
   tags?: string[]
 }
 
+type HomeFilters = {
+  free: boolean
+  paid: boolean
+  beginner: boolean
+  pro: boolean
+  chinese: boolean
+}
+
 const HISTORY_STORAGE_KEY = "ai_tool_picker_history"
 const FAVORITES_STORAGE_KEY = "ai_tool_picker_favorites"
 const HISTORY_LIMIT = 10
@@ -31,6 +39,14 @@ const MAX_COMPARE_TOOLS = 3
 const AI_KEYWORD_REGEX = /(?:\bai\b|人工智能|大模型|生成式|llm|gpt|copilot|智能)/i
 const LOADING_SIMULATION_DELAY_MS = 350
 const FAVORITE_ANIMATION_DURATION_MS = 250
+const MAIN_COMPARE_PADDING_CLASS = "pb-72 sm:pb-64"
+const FILTER_OPTIONS: Array<{ key: keyof HomeFilters; label: string; group: "price" | "multi" }> = [
+  { key: "free", label: "Free", group: "price" },
+  { key: "paid", label: "Paid", group: "price" },
+  { key: "beginner", label: "Beginner", group: "multi" },
+  { key: "pro", label: "Pro", group: "multi" },
+  { key: "chinese", label: "中文支持", group: "multi" },
+]
 const POPULAR_TOOLS: RecommendItem[] = [
   {
     name: "ChatGPT",
@@ -131,7 +147,7 @@ export default function Home() {
   const [favoriteLimitHint, setFavoriteLimitHint] = useState("")
   const [favoritesHydrated, setFavoritesHydrated] = useState(false)
   const [lastSearchedQuery, setLastSearchedQuery] = useState("")
-  const [activeFilters, setActiveFilters] = useState({
+  const [activeFilters, setActiveFilters] = useState<HomeFilters>({
     free: false,
     paid: false,
     beginner: false,
@@ -338,7 +354,17 @@ export default function Home() {
   }
 
   const handleFilterToggle = (filter: keyof typeof activeFilters) => {
-    setActiveFilters((prev) => ({ ...prev, [filter]: !prev[filter] }))
+    setActiveFilters((prev) => {
+      if (filter === "free") {
+        const nextFree = !prev.free
+        return { ...prev, free: nextFree, paid: nextFree ? false : prev.paid }
+      }
+      if (filter === "paid") {
+        const nextPaid = !prev.paid
+        return { ...prev, paid: nextPaid, free: nextPaid ? false : prev.free }
+      }
+      return { ...prev, [filter]: !prev[filter] }
+    })
   }
 
   const clearCompareLimitHint = () => setCompareLimitHint("")
@@ -379,7 +405,9 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-4 py-16 pb-64">
+    <main
+      className={cn("min-h-screen flex flex-col items-center justify-center px-4 py-16", MAIN_COMPARE_PADDING_CLASS)}
+    >
       <div className="w-full max-w-3xl flex flex-col items-center gap-12">
         {/* 标题区域 */}
         <div className="text-center">
@@ -450,14 +478,9 @@ export default function Home() {
 
           <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
             <p className="text-xs text-muted-foreground">筛选：</p>
-            {[
-              { key: "free", label: "Free" },
-              { key: "paid", label: "Paid" },
-              { key: "beginner", label: "Beginner" },
-              { key: "pro", label: "Pro" },
-              { key: "chinese", label: "中文支持" },
-            ].map((filter) => {
+            {FILTER_OPTIONS.map((filter) => {
               const selected = activeFilters[filter.key as keyof typeof activeFilters]
+              const isPriceFilter = filter.group === "price"
               return (
                 <button
                   key={filter.key}
@@ -470,6 +493,8 @@ export default function Home() {
                       : "border-border bg-background text-foreground hover:bg-muted",
                   )}
                   aria-pressed={selected}
+                  role={isPriceFilter ? "radio" : undefined}
+                  aria-checked={isPriceFilter ? selected : undefined}
                 >
                   {filter.label}
                 </button>
@@ -585,19 +610,14 @@ export default function Home() {
                   {compareLimitHint}
                 </div>
               )}
-              {compareTools.length === 1 && (
-                <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs text-sky-700">
-                  1 tool selected, select more to compare
-                </div>
-              )}
               {filteredResults.map((item) => (
                  <Card
-                   key={item.name}
-                   className={cn(
-                     "p-5 rounded-xl border transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-md",
-                     isToolSelected(item.name) ? "border-primary ring-1 ring-primary/30" : "border-border",
-                   )}
-                 >
+                    key={item.name}
+                    className={cn(
+                      "p-5 rounded-xl border transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-lg",
+                      isToolSelected(item.name) ? "border-primary ring-1 ring-primary/30" : "border-border",
+                    )}
+                  >
                   <div className="flex h-full flex-col">
                    <div className="flex items-start justify-between gap-3">
                        <h2 className="text-lg font-semibold text-foreground">{item.name}</h2>
@@ -606,11 +626,11 @@ export default function Home() {
                             type="button"
                             onClick={() => handleFavoriteToggle(item)}
                             className={cn(
-                              "inline-flex items-center gap-1 text-xs transition-all duration-150",
+                              "inline-flex items-center gap-1 text-xs transition-transform duration-150 active:scale-95",
                               isToolFavorited(item.name)
                                 ? "text-rose-500"
                                 : "text-muted-foreground hover:text-foreground",
-                              favoriteAnimatingTool === item.name ? "scale-110" : "scale-100",
+                              favoriteAnimatingTool === item.name ? "scale-95" : "scale-100",
                             )}
                             title={isToolFavorited(item.name) ? "取消收藏" : "收藏"}
                             aria-label={isToolFavorited(item.name) ? `取消收藏 ${item.name}` : `收藏 ${item.name}`}
@@ -626,14 +646,18 @@ export default function Home() {
                             />
                             对比
                           </label>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={isToolSelected(item.name) ? "secondary" : "outline"}
-                            onClick={() => handleCompareToggle(item, !isToolSelected(item.name))}
-                          >
-                            Compare
-                          </Button>
+                           <Button
+                             type="button"
+                             size="sm"
+                             variant={isToolSelected(item.name) ? "secondary" : "outline"}
+                             onClick={() => handleCompareToggle(item, !isToolSelected(item.name))}
+                             className={cn(
+                               "min-w-20",
+                               isToolSelected(item.name) ? "border-primary bg-primary/10 text-primary" : "",
+                             )}
+                           >
+                             {isToolSelected(item.name) ? "已加入" : "加入对比"}
+                           </Button>
                         </div>
                       </div>
                     {Array.isArray(item.tags) && item.tags.length > 0 && (

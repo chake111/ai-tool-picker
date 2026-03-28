@@ -53,7 +53,10 @@ export function SearchInput({ query, onQueryChange, onSearch, isLoading = false 
           className="h-14 px-6 rounded-xl text-base font-medium"
         >
           {isLoading ? (
-            <Sparkles className="h-5 w-5 animate-pulse" />
+            <>
+              <Sparkles className="h-5 w-5 animate-spin mr-2" />
+              Thinking...
+            </>
           ) : (
             <>
               <Sparkles className="h-5 w-5 mr-2" />
