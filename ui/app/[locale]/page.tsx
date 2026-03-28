@@ -1,12 +1,13 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Heart } from "lucide-react"
+import { Heart, Search } from "lucide-react"
 import { signIn, signOut, useSession } from "next-auth/react"
 import { useLocale, useTranslations } from "next-intl"
 import { SearchInput } from "@/components/search-input"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ComparePanel } from "@/components/compare-panel"
@@ -639,16 +640,22 @@ export default function Home() {
             </div>
           )}
 
-          <div className="rounded-xl border border-border/70 bg-muted/20 p-3 sm:p-4">
+          <div className="rounded-xl border border-border/70 bg-muted/30 p-3 sm:p-4">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                 <div>
-                   <p className="text-sm font-semibold text-foreground">
-                      {t("favorites.title")}（
-                      <span aria-label={t("favorites.countAria", { count: favorites.length })}>{favorites.length}</span>
-                      {t("favorites.countSuffix")}）
-                    </p>
-                    <p className="text-xs text-muted-foreground">{t("favorites.subtitle")}</p>
-                    <p
+                  <div>
+                    <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                       <Heart className="size-4 text-rose-500" aria-hidden="true" />
+                       <span>{t("favorites.title")}</span>
+                       <Badge
+                         variant="secondary"
+                         aria-label={t("favorites.countAria", { count: favorites.length })}
+                         className="font-semibold"
+                       >
+                         {t("favorites.countDisplay", { count: favorites.length })}
+                       </Badge>
+                     </p>
+                     <p className="text-xs text-muted-foreground">{t("favorites.subtitle")}</p>
+                     <p
                       className="text-xs text-muted-foreground"
                       aria-label={t("favorites.storageAria", {
                         where: isLoggedIn ? t("favorites.storage.account") : t("favorites.storage.local"),
@@ -749,12 +756,14 @@ export default function Home() {
 
         {/* 结果列表 */}
          {results.length > 0 && !isLoading && (
-            <div className="w-full max-w-2xl flex flex-col gap-4">
-             <div className="text-sm text-muted-foreground">
-                {t("home.found", {
-                  count: filteredResults.length,
-                  query: lastSearchedQuery || query || t("home.queryFallback"),
-                })}
+            <div className="mt-6 w-full max-w-2xl border-t border-border/70 pt-6 flex flex-col gap-4">
+             <div className="flex flex-col gap-1">
+                <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <Search className="size-4 text-primary" aria-hidden="true" />
+                  <span>{t("home.resultsTitle")}</span>
+                  <Badge className="font-semibold">{t("home.resultsCount", { count: filteredResults.length })}</Badge>
+                </p>
+                <p className="text-xs text-muted-foreground">{t("home.resultsSubtitle")}</p>
               </div>
               {compareLimitHint && (
                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
@@ -858,7 +867,7 @@ export default function Home() {
         {/* 底部提示 */}
         {!error && results.length === 0 && !isLoading && (
           <div className="text-center text-sm text-muted-foreground">
-            <p>{t("home.emptyHint")}</p>
+            <p>{lastSearchedQuery ? t("home.noResults") : t("home.emptyHint")}</p>
           </div>
         )}
       </div>

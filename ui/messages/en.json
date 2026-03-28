@@ -31,8 +31,11 @@
       "write": "Write"
     },
     "loading": "Finding the best tools for you...",
-    "found": "Found {count} tools for \"{query}\"",
+    "resultsTitle": "Results",
+    "resultsCount": "({count})",
+    "resultsSubtitle": "Returned for this search",
     "queryFallback": "query",
+    "noResults": "No results for this search",
     "emptyHint": "Try: make PPT, write copy, draw, write code...",
     "popularTools": "Popular tools"
   },
@@ -47,10 +50,10 @@
     }
   },
   "favorites": {
-    "title": "My tool library",
+    "title": "My Favorites",
     "countAria": "{count} tools",
-    "countSuffix": " tools",
-    "subtitle": "Favorites are independent from search and compare, and can be removed at any time",
+    "countDisplay": "({count})",
+    "subtitle": "Only visible to you, saved for later",
     "storageAria": "Favorites storage location: {where}",
     "storage": {
       "account": "Saved to your account",
@@ -62,7 +65,7 @@
       "ai": "By AI type",
       "scenario": "By scenario"
     },
-    "empty": "No favorites yet. Click the heart icon (❤️) to save tools",
+    "empty": "You have no favorites yet",
     "remove": "Remove favorite",
     "removeOne": "Remove favorite {name}",
     "add": "Favorite",
