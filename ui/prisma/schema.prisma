@@ -21,8 +21,25 @@ model UserEvent {
   userId    String?         @map("user_id")
   createdAt DateTime        @default(now()) @map("created_at")
 
-  @@map("user_events")
   @@index([action, createdAt], map: "user_events_action_created_at_idx")
   @@index([userId, createdAt], map: "user_events_user_id_created_at_idx")
   @@index([toolId, createdAt], map: "user_events_tool_id_created_at_idx")
+  @@map("user_events")
+}
+
+model UserFavorite {
+  id        BigInt   @id @default(autoincrement())
+  userId    String   @map("user_id")
+  toolId    String   @map("tool_id")
+  name      String
+  desc      String
+  reason    String
+  link      String?
+  tags      String[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, toolId], map: "user_favorites_user_id_tool_id_key")
+  @@index([userId, updatedAt], map: "user_favorites_user_id_updated_at_idx")
+  @@map("user_favorites")
 }

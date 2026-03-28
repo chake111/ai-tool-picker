@@ -39,7 +39,7 @@ Describe your need, and AI Tool Picker recommends the best-fit tool with a clear
 
 ### Persistence
 - `localStorage` for search history and guest favorites
-- in-memory per-user favorites via `/api/favorites` when logged in
+- PostgreSQL (Prisma) per-user favorites via `/api/favorites` when logged in
 
 ## 🚀 Getting Started
 
@@ -85,9 +85,12 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-### 5) Tracking persistence setup (required for `/api/track` DB writes)
+### 5) Database migrations (required for `/api/track` and `/api/favorites`)
 
-When tracking persistence is enabled, `DATABASE_URL` is required because `/api/track` writes into `user_events` via Prisma.
+`DATABASE_URL` is required because:
+
+- `/api/track` writes into `user_events`
+- `/api/favorites` persists logged-in favorites into `user_favorites`
 
 Event-to-DB field mapping:
 
@@ -101,6 +104,11 @@ cd ui
 npx prisma migrate dev
 npm run dev
 ```
+
+Notes on favorites persistence rollout:
+
+- Logged-in favorites are now persisted in DB (`user_favorites`) and survive restarts / multi-instance deployments.
+- Historical in-memory favorites are not migrated. This is expected; only data written after this change is guaranteed to persist.
 
 ### 6) Quick verification: event is persisted
 
@@ -125,6 +133,20 @@ curl "http://localhost:3000/api/track/debug?limit=20"
 ```
 
 Security note: keep `TRACK_DEBUG_API_ENABLED=false` in production unless you explicitly need temporary diagnostics.
+
+### 7) Quick verification: favorites are persisted
+
+1. Sign in with Google.
+2. Add one or more favorites in the UI.
+3. Refresh the page and confirm favorites are still shown.
+4. Verify with Prisma Studio:
+
+```bash
+cd ui
+npx prisma studio
+```
+
+Open `UserFavorite` and confirm rows exist for your user (`userId` = session email).
 
 ## 🧪 Usage
 
