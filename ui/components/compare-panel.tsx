@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { ExternalLink, Minus, X } from "lucide-react"
+import { useTranslations } from "next-intl"
 import type { RecommendItem } from "@/lib/recommend"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -32,6 +33,7 @@ function getAiFeatureScore(tool: RecommendItem): number {
 }
 
 export function ComparePanel({ tools, onRemove, onClear }: ComparePanelProps) {
+  const t = useTranslations("compare")
   const [isClosed, setIsClosed] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
   const [sortMode, setSortMode] = useState<SortMode>("recommendation")
@@ -78,7 +80,7 @@ export function ComparePanel({ tools, onRemove, onClear }: ComparePanelProps) {
           className="rounded-full shadow-lg"
           onClick={() => setIsClosed(false)}
         >
-          打开工具对比（{tools.length}）
+          {t("open", { count: tools.length })}
         </Button>
       </div>
     )
@@ -94,13 +96,13 @@ export function ComparePanel({ tools, onRemove, onClear }: ComparePanelProps) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold text-foreground">
-              工具对比（{tools.length}/3）
+              {t("title", { current: tools.length, max: 3 })}
             </h3>
             {tools.length === 1 && (
-              <span className="text-xs text-primary">已选择 1 个工具，再选一个即可开始对比</span>
+              <span className="text-xs text-primary">{t("selectedOne")}</span>
             )}
             {!hasEnoughTools && tools.length !== 1 && (
-              <span className="text-xs text-muted-foreground">再选择至少 1 个工具开始对比</span>
+              <span className="text-xs text-muted-foreground">{t("needMore")}</span>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -108,11 +110,11 @@ export function ComparePanel({ tools, onRemove, onClear }: ComparePanelProps) {
               value={sortMode}
               onChange={(event) => setSortMode(event.target.value as SortMode)}
               className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
-              aria-label="对比排序"
+              aria-label={t("sortAria")}
             >
-              <option value="recommendation">按推荐度</option>
-              <option value="ai">按 AI 特性</option>
-              <option value="audience">按适合人群</option>
+              <option value="recommendation">{t("sort.recommendation")}</option>
+              <option value="ai">{t("sort.ai")}</option>
+              <option value="audience">{t("sort.audience")}</option>
             </select>
             <Button
               type="button"
@@ -120,7 +122,7 @@ export function ComparePanel({ tools, onRemove, onClear }: ComparePanelProps) {
               size="sm"
               onClick={() => setViewMode("table")}
             >
-              表格
+              {t("view.table")}
             </Button>
             <Button
               type="button"
@@ -128,15 +130,15 @@ export function ComparePanel({ tools, onRemove, onClear }: ComparePanelProps) {
               size="sm"
               onClick={() => setViewMode("list")}
             >
-              列表
+              {t("view.list")}
             </Button>
             <Button type="button" variant="ghost" size="icon-sm" onClick={() => setIsMinimized((prev) => !prev)}>
               <Minus className="size-4" />
-              <span className="sr-only">{isMinimized ? "展开" : "最小化"}</span>
+              <span className="sr-only">{isMinimized ? t("actions.expand") : t("actions.minimize")}</span>
             </Button>
             <Button type="button" variant="ghost" size="icon-sm" onClick={() => setIsClosed(true)}>
               <X className="size-4" />
-              <span className="sr-only">关闭</span>
+              <span className="sr-only">{t("actions.close")}</span>
             </Button>
           </div>
         </div>
@@ -147,11 +149,11 @@ export function ComparePanel({ tools, onRemove, onClear }: ComparePanelProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>名称</TableHead>
-                    <TableHead>功能描述</TableHead>
-                    <TableHead>AI 特性</TableHead>
-                    <TableHead>适合人群</TableHead>
-                    <TableHead className="text-right">官网</TableHead>
+                    <TableHead>{t("table.name")}</TableHead>
+                    <TableHead>{t("table.desc")}</TableHead>
+                    <TableHead>{t("table.ai")}</TableHead>
+                    <TableHead>{t("table.audience")}</TableHead>
+                    <TableHead className="text-right">{t("table.site")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -180,7 +182,7 @@ export function ComparePanel({ tools, onRemove, onClear }: ComparePanelProps) {
                         <div className="flex items-center justify-end gap-1">
                           <Button asChild size="sm">
                             <a href={tool.link} target="_blank" rel="noopener noreferrer">
-                              访问 <ExternalLink className="size-3.5" />
+                              {t("actions.visit")} <ExternalLink className="size-3.5" />
                             </a>
                           </Button>
                           <Button
@@ -189,7 +191,7 @@ export function ComparePanel({ tools, onRemove, onClear }: ComparePanelProps) {
                             size="sm"
                             onClick={() => onRemove(tool.name)}
                           >
-                            移除
+                            {t("actions.remove")}
                           </Button>
                         </div>
                       </TableCell>
@@ -209,7 +211,7 @@ export function ComparePanel({ tools, onRemove, onClear }: ComparePanelProps) {
                         size="sm"
                         onClick={() => onRemove(tool.name)}
                       >
-                        移除
+                        {t("actions.remove")}
                       </Button>
                     </div>
                     <p
@@ -228,7 +230,7 @@ export function ComparePanel({ tools, onRemove, onClear }: ComparePanelProps) {
                     </div>
                     <Button asChild className="mt-3 w-full" size="sm">
                       <a href={tool.link} target="_blank" rel="noopener noreferrer">
-                        访问官网 <ExternalLink className="size-3.5" />
+                        {t("actions.visitSite")} <ExternalLink className="size-3.5" />
                       </a>
                     </Button>
                   </div>
@@ -238,7 +240,7 @@ export function ComparePanel({ tools, onRemove, onClear }: ComparePanelProps) {
 
             <div className="flex justify-end">
               <Button type="button" variant="outline" size="sm" onClick={onClear}>
-                清空对比
+                {t("actions.clear")}
               </Button>
             </div>
           </>

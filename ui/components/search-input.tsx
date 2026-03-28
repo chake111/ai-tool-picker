@@ -9,9 +9,20 @@ interface SearchInputProps {
   onQueryChange: (query: string) => void
   onSearch: (query: string) => void
   isLoading?: boolean
+  placeholder: string
+  submitLabel: string
+  loadingLabel: string
 }
 
-export function SearchInput({ query, onQueryChange, onSearch, isLoading = false }: SearchInputProps) {
+export function SearchInput({
+  query,
+  onQueryChange,
+  onSearch,
+  isLoading = false,
+  placeholder,
+  submitLabel,
+  loadingLabel,
+}: SearchInputProps) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -42,7 +53,7 @@ export function SearchInput({ query, onQueryChange, onSearch, isLoading = false 
             type="text"
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
-            placeholder="我想做PPT"
+            placeholder={placeholder}
             className="w-full h-14 pl-12 pr-4 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-lg"
           />
         </div>
@@ -55,12 +66,12 @@ export function SearchInput({ query, onQueryChange, onSearch, isLoading = false 
           {isLoading ? (
             <>
               <Sparkles className="h-5 w-5 animate-spin mr-2" />
-              Thinking...
+              {loadingLabel}
             </>
           ) : (
             <>
               <Sparkles className="h-5 w-5 mr-2" />
-              帮我选
+              {submitLabel}
             </>
           )}
         </Button>

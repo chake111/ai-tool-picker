@@ -1,0 +1,110 @@
+{
+  "common": {
+    "thinking": "Thinking...",
+    "visitWebsite": "Visit website",
+    "noWebsite": "No website link"
+  },
+  "auth": {
+    "loginWithGoogle": "Log in with Google",
+    "logout": "Log out",
+    "userAvatarAlt": "User avatar"
+  },
+  "home": {
+    "title": "Let me pick AI for you",
+    "subtitle": "Tell me what you want to do and I will recommend the most suitable AI tools",
+    "searchPlaceholder": "I want to make a PPT",
+    "searchAction": "Pick for me",
+    "history": {
+      "title": "Search history",
+      "clear": "Clear history",
+      "empty": "No recent searches"
+    },
+    "categories": {
+      "code": "Write code",
+      "ppt": "Make PPT",
+      "draw": "Draw",
+      "write": "Write"
+    },
+    "loading": "Finding the best tools for you...",
+    "found": "Found {count} tools for \"{query}\"",
+    "queryFallback": "query",
+    "emptyHint": "Try: make PPT, write copy, draw, write code...",
+    "popularTools": "Popular tools"
+  },
+  "filters": {
+    "title": "Filters:",
+    "options": {
+      "free": "Free",
+      "paid": "Paid",
+      "beginner": "Beginner",
+      "pro": "Pro",
+      "chinese": "Chinese support"
+    }
+  },
+  "favorites": {
+    "title": "My tool library",
+    "countAria": "{count} tools",
+    "countSuffix": " tools",
+    "subtitle": "Favorites are independent from search and compare, and can be removed at any time",
+    "storageAria": "Favorites storage location: {where}",
+    "storage": {
+      "account": "Saved to your account",
+      "local": "Saved locally"
+    },
+    "sortAria": "Favorite sorting",
+    "sort": {
+      "name": "By name",
+      "ai": "By AI type",
+      "scenario": "By scenario"
+    },
+    "empty": "No favorites yet. Click the heart icon (❤️) to save tools",
+    "remove": "Remove favorite",
+    "removeOne": "Remove favorite {name}",
+    "add": "Favorite",
+    "addOne": "Favorite {name}",
+    "added": "Favorited",
+    "limit": "You can favorite up to {limit} tools"
+  },
+  "compare": {
+    "label": "Compare",
+    "add": "Add to compare",
+    "addOne": "Add {name} to compare",
+    "added": "Added",
+    "limit": "You can compare up to {limit} tools",
+    "open": "Open tool compare ({count})",
+    "title": "Tool compare ({current}/{max})",
+    "selectedOne": "1 tool selected, pick one more to start comparing",
+    "needMore": "Select at least 1 more tool to start comparing",
+    "sortAria": "Compare sorting",
+    "sort": {
+      "recommendation": "By recommendation",
+      "ai": "By AI features",
+      "audience": "By audience"
+    },
+    "view": {
+      "table": "Table",
+      "list": "List"
+    },
+    "table": {
+      "name": "Name",
+      "desc": "Description",
+      "ai": "AI features",
+      "audience": "Audience",
+      "site": "Website"
+    },
+    "actions": {
+      "expand": "Expand",
+      "minimize": "Minimize",
+      "close": "Close",
+      "visit": "Visit",
+      "visitSite": "Visit website",
+      "remove": "Remove",
+      "clear": "Clear compare"
+    }
+  },
+  "errors": {
+    "requestFailed": "Request failed, please try again later",
+    "recommendationFailed": "Recommendation failed, please try again",
+    "fallback": "Something went wrong. Please try again."
+  }
+}

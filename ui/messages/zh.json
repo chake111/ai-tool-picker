@@ -1,0 +1,110 @@
+{
+  "common": {
+    "thinking": "思考中...",
+    "visitWebsite": "访问官网",
+    "noWebsite": "暂无官网链接"
+  },
+  "auth": {
+    "loginWithGoogle": "使用 Google 登录",
+    "logout": "退出登录",
+    "userAvatarAlt": "用户头像"
+  },
+  "home": {
+    "title": "帮你选 AI",
+    "subtitle": "告诉我你想做什么，我来推荐最合适的 AI 工具",
+    "searchPlaceholder": "我想做PPT",
+    "searchAction": "帮我选",
+    "history": {
+      "title": "历史搜索",
+      "clear": "清空历史",
+      "empty": "暂无最近搜索"
+    },
+    "categories": {
+      "code": "写代码",
+      "ppt": "做PPT",
+      "draw": "画图",
+      "write": "写作"
+    },
+    "loading": "正在为你寻找最佳工具...",
+    "found": "为 \"{query}\" 找到 {count} 个工具",
+    "queryFallback": "关键词",
+    "emptyHint": "试试输入：做PPT、写文案、画图、写代码...",
+    "popularTools": "热门工具"
+  },
+  "filters": {
+    "title": "筛选：",
+    "options": {
+      "free": "免费",
+      "paid": "付费",
+      "beginner": "新手",
+      "pro": "专业",
+      "chinese": "中文支持"
+    }
+  },
+  "favorites": {
+    "title": "我的工具库",
+    "countAria": "{count} 个工具",
+    "countSuffix": " 个工具",
+    "subtitle": "收藏列表与搜索和对比功能独立，可随时取消收藏",
+    "storageAria": "收藏存储位置：{where}",
+    "storage": {
+      "account": "已保存到你的账户",
+      "local": "已本地保存"
+    },
+    "sortAria": "收藏排序",
+    "sort": {
+      "name": "按名称",
+      "ai": "按 AI 类型",
+      "scenario": "按使用场景"
+    },
+    "empty": "暂无收藏，点击心形图标 (❤️) 即可收藏工具",
+    "remove": "取消收藏",
+    "removeOne": "取消收藏 {name}",
+    "add": "收藏",
+    "addOne": "收藏 {name}",
+    "added": "已收藏",
+    "limit": "收藏上限为 {limit} 个工具"
+  },
+  "compare": {
+    "label": "对比",
+    "add": "加入对比",
+    "addOne": "将 {name} 加入对比",
+    "added": "已加入",
+    "limit": "最多只能对比 {limit} 个工具",
+    "open": "打开工具对比（{count}）",
+    "title": "工具对比（{current}/{max}）",
+    "selectedOne": "已选择 1 个工具，再选一个即可开始对比",
+    "needMore": "再选择至少 1 个工具开始对比",
+    "sortAria": "对比排序",
+    "sort": {
+      "recommendation": "按推荐度",
+      "ai": "按 AI 特性",
+      "audience": "按适合人群"
+    },
+    "view": {
+      "table": "表格",
+      "list": "列表"
+    },
+    "table": {
+      "name": "名称",
+      "desc": "功能描述",
+      "ai": "AI 特性",
+      "audience": "适合人群",
+      "site": "官网"
+    },
+    "actions": {
+      "expand": "展开",
+      "minimize": "最小化",
+      "close": "关闭",
+      "visit": "访问",
+      "visitSite": "访问官网",
+      "remove": "移除",
+      "clear": "清空对比"
+    }
+  },
+  "errors": {
+    "requestFailed": "请求失败，请稍后再试",
+    "recommendationFailed": "推荐生成失败，请稍后重试",
+    "fallback": "发生错误，请稍后重试。"
+  }
+}
