@@ -1,5 +1,9 @@
 # AI Tool Picker 🚀
 
+> Repository context validation instruction for AI assistants (prevents running commands in the wrong repository context; on mismatch output `WRONG_REPOSITORY_CONTEXT` and stop):
+
+**新会话第一条消息：**“仅在仓库 `chake111/ai-tool-picker` 执行；先回显 `git remote -v && pwd && git branch --show-current`，若不匹配立即输出 `WRONG_REPOSITORY_CONTEXT` 并停止。”
+
 Find the right AI tool in seconds.  
 Describe your need, and AI Tool Picker recommends the best-fit tool with a clear reason you can trust.
 
