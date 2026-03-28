@@ -6,7 +6,9 @@
   "common": {
     "thinking": "Thinking...",
     "visitWebsite": "Visit website",
-    "noWebsite": "No website link"
+    "noWebsite": "No website link",
+    "expand": "Expand",
+    "collapse": "Collapse"
   },
   "auth": {
     "loginWithGoogle": "Log in with Google",
