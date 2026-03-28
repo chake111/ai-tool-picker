@@ -66,6 +66,9 @@ NEXTAUTH_SECRET=your_nextauth_secret_here
 GOOGLE_CLIENT_ID=your_google_client_id_here
 GOOGLE_CLIENT_SECRET=your_google_client_secret_here
 NEXTAUTH_URL=http://localhost:3000
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ai_tool_picker
+# Optional: enable read-only track debug API in non-production verification
+TRACK_DEBUG_API_ENABLED=false
 ```
 
 You can generate `NEXTAUTH_SECRET` with:
@@ -81,6 +84,47 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+### 5) Tracking persistence setup (required for `/api/track` DB writes)
+
+When tracking persistence is enabled, `DATABASE_URL` is required because `/api/track` writes into `user_events` via Prisma.
+
+Event-to-DB field mapping:
+
+- `action` <- request `event`
+- `toolId` <- request `toolId` (nullable)
+- `keyword` <- request `keyword` (nullable)
+- `userId` <- `session.user.id` (nullable)
+
+```bash
+cd ui
+npx prisma migrate dev
+npm run dev
+```
+
+### 6) Quick verification: event is persisted
+
+1. Trigger a tracking event from the UI (search/favorite/click).
+2. Verify with Prisma Studio:
+
+```bash
+cd ui
+npx prisma studio
+```
+
+Then open `UserEvent` and confirm a new row exists.
+
+Optional read-only debug API (for local QA):
+
+- Enable with `TRACK_DEBUG_API_ENABLED=true`
+- Sign in first (endpoint requires authenticated session)
+- Query recent events:
+
+```bash
+curl "http://localhost:3000/api/track/debug?limit=20"
+```
+
+Security note: keep `TRACK_DEBUG_API_ENABLED=false` in production unless you explicitly need temporary diagnostics.
 
 ## 🧪 Usage
 

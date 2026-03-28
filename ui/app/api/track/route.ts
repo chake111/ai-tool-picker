@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth"
 import { NextResponse } from "next/server"
 import { authOptions } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
 
 type TrackPayload = {
   event: "search" | "favorite" | "click"
@@ -42,28 +43,47 @@ export async function POST(request: Request) {
   try {
     payload = await request.json()
   } catch {
+    console.warn("[track] payload_validation_failed", { reason: "invalid_json" })
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
   }
 
   if (!isValidPayload(payload)) {
+    console.warn("[track] payload_validation_failed", { reason: "schema_invalid" })
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
   }
 
   const session = await getServerSession(authOptions)
   const userId = session?.user?.id ?? null
+  console.info("[track] auth_state", { isAuthenticated: Boolean(userId) })
 
   const eventRecord = {
-    event: payload.event,
+    action: payload.event,
+    toolId: payload.toolId ?? null,
+    keyword: payload.keyword ?? null,
     userId,
-    anonymousId: payload.anonymousId,
-    page: payload.page ?? "/",
-    timestamp: payload.timestamp,
-    metadata:
-      payload.event === "search"
-        ? { keyword: payload.keyword }
-        : { toolId: payload.toolId, keyword: payload.keyword },
   }
 
-  console.log("[track]", eventRecord)
+  try {
+    await prisma.userEvent.create({
+      data: eventRecord,
+    })
+  } catch (error) {
+    console.error("[track] db_write_failed", {
+      action: eventRecord.action,
+      hasToolId: Boolean(eventRecord.toolId),
+      hasKeyword: Boolean(eventRecord.keyword),
+      isAuthenticated: Boolean(userId),
+      error: error instanceof Error ? error.message : "unknown_error",
+    })
+
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+
+  console.info("[track] event_persisted", {
+    action: eventRecord.action,
+    hasToolId: Boolean(eventRecord.toolId),
+    hasKeyword: Boolean(eventRecord.keyword),
+    isAuthenticated: Boolean(userId),
+  })
   return NextResponse.json({ ok: true })
 }
