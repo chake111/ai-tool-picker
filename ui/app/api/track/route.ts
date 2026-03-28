@@ -1,7 +1,15 @@
 import { getServerSession } from "next-auth"
 import { NextResponse } from "next/server"
 import { authOptions } from "@/lib/auth"
-import type { TrackPayload } from "@/lib/track"
+
+type TrackPayload = {
+  event: "search" | "favorite" | "click"
+  anonymousId: string
+  timestamp: number
+  page?: string
+  toolId?: string
+  keyword?: string
+}
 
 const VALID_EVENTS = new Set<TrackPayload["event"]>(["search", "favorite", "click"])
 
@@ -13,22 +21,13 @@ function isValidPayload(payload: unknown): payload is TrackPayload {
   if (typeof candidate.timestamp !== "number") return false
 
   if (candidate.event === "search") {
-    return typeof candidate.query === "string" && candidate.query.trim().length > 0
+    return typeof candidate.keyword === "string" && candidate.keyword.trim().length > 0
   }
   if (candidate.event === "favorite") {
-    return (
-      typeof candidate.toolName === "string" &&
-      candidate.toolName.trim().length > 0 &&
-      (candidate.action === "add" || candidate.action === "remove")
-    )
+    return typeof candidate.toolId === "string" && candidate.toolId.trim().length > 0
   }
   if (candidate.event === "click") {
-    return (
-      typeof candidate.toolName === "string" &&
-      candidate.toolName.trim().length > 0 &&
-      typeof candidate.targetUrl === "string" &&
-      candidate.targetUrl.trim().length > 0
-    )
+    return typeof candidate.toolId === "string" && candidate.toolId.trim().length > 0
   }
   return false
 }
@@ -56,10 +55,8 @@ export async function POST(request: Request) {
     timestamp: payload.timestamp,
     metadata:
       payload.event === "search"
-        ? { query: payload.query }
-        : payload.event === "favorite"
-          ? { toolName: payload.toolName, action: payload.action }
-          : { toolName: payload.toolName, targetUrl: payload.targetUrl },
+        ? { keyword: payload.keyword }
+        : { toolId: payload.toolId, keyword: payload.keyword },
   }
 
   console.log("[track]", eventRecord)

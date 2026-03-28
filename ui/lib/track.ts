@@ -1,45 +1,19 @@
-export type TrackEventType = "search" | "favorite" | "click"
+export type TrackAction = "search" | "favorite" | "click"
 
-type BaseTrackPayload = {
-  event: TrackEventType
+type TrackEventPayload = {
+  event: TrackAction
   anonymousId: string
   page?: string
   timestamp?: number
+  toolId?: string
+  keyword?: string
 }
 
-type SearchTrackPayload = BaseTrackPayload & {
-  event: "search"
-  query: string
+export type TrackInput = {
+  action: TrackAction
+  toolId?: string
+  keyword?: string
 }
-
-type FavoriteTrackPayload = BaseTrackPayload & {
-  event: "favorite"
-  toolName: string
-  action: "add" | "remove"
-}
-
-type ClickTrackPayload = BaseTrackPayload & {
-  event: "click"
-  toolName: string
-  targetUrl: string
-}
-
-export type TrackPayload = SearchTrackPayload | FavoriteTrackPayload | ClickTrackPayload
-export type TrackClientPayload =
-  | {
-      event: "search"
-      query: string
-    }
-  | {
-      event: "favorite"
-      toolName: string
-      action: "add" | "remove"
-    }
-  | {
-      event: "click"
-      toolName: string
-      targetUrl: string
-    }
 
 const ANONYMOUS_ID_STORAGE_KEY = "ai_tool_picker_anonymous_id"
 
@@ -63,13 +37,15 @@ export function getAnonymousId(): string {
   return nextId
 }
 
-export async function trackEvent(payload: TrackClientPayload) {
-  const requestPayload: TrackPayload = {
-    ...payload,
+export async function track(payload: TrackInput) {
+  const requestPayload: TrackEventPayload = {
+    event: payload.action,
+    toolId: payload.toolId,
+    keyword: payload.keyword,
     anonymousId: getAnonymousId(),
     page: typeof window !== "undefined" ? window.location.pathname : "/",
     timestamp: Date.now(),
-  } as TrackPayload
+  }
 
   const response = await fetch("/api/track", {
     method: "POST",
@@ -83,6 +59,6 @@ export async function trackEvent(payload: TrackClientPayload) {
       status: response.status,
       event: requestPayload.event,
     })
-    throw new Error(`Track request failed: ${response.status}`)
+    throw new Error(`Track request failed for ${requestPayload.event}: ${response.status}`)
   }
 }

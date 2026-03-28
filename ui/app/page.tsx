@@ -12,7 +12,7 @@ import { ComparePanel } from "@/components/compare-panel"
 import type { RecommendItem } from "@/lib/recommend"
 import { cn } from "@/lib/utils"
 import { sanitizeFavoriteItem, type FavoriteItem } from "@/lib/favorites-store"
-import { trackEvent } from "@/lib/track"
+import { track } from "@/lib/track"
 
 type SearchHistoryItem = {
   query: string
@@ -290,9 +290,9 @@ export default function Home() {
     }
 
     saveHistory(normalizedQuery)
-    void trackEvent({
-      event: "search",
-      query: normalizedQuery,
+    void track({
+      action: "search",
+      keyword: normalizedQuery,
     }).catch(() => {})
     setIsLoading(true)
     setError("")
@@ -351,10 +351,10 @@ export default function Home() {
   const handleFavoriteToggle = (item: RecommendItem) => {
     const exists = favorites.some((tool) => tool.name === item.name)
     const action = exists ? "remove" : "add"
-    void trackEvent({
-      event: "favorite",
-      toolName: item.name,
-      action,
+    void track({
+      action: "favorite",
+      toolId: item.name,
+      keyword: action,
     }).catch(() => {})
 
     setFavorites((prev) => {
@@ -635,10 +635,10 @@ export default function Home() {
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={() => {
-                                void trackEvent({
-                                  event: "click",
-                                  toolName: favorite.name,
-                                  targetUrl: favorite.link ?? "",
+                                void track({
+                                  action: "click",
+                                  toolId: favorite.name,
+                                  keyword: favorite.link,
                                 }).catch(() => {})
                               }}
                             >
@@ -755,10 +755,10 @@ export default function Home() {
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => {
-                          void trackEvent({
-                            event: "click",
-                            toolName: item.name,
-                            targetUrl: item.link,
+                          void track({
+                            action: "click",
+                            toolId: item.name,
+                            keyword: item.link,
                           }).catch(() => {})
                         }}
                       >
