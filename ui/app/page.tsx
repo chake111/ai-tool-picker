@@ -2,25 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { Heart } from "lucide-react"
+import { signIn, signOut, useSession } from "next-auth/react"
 import { SearchInput } from "@/components/search-input"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ComparePanel } from "@/components/compare-panel"
 import type { RecommendItem } from "@/lib/recommend"
 import { cn } from "@/lib/utils"
+import { sanitizeFavoriteItem, type FavoriteItem } from "@/lib/favorites-store"
 
 type SearchHistoryItem = {
   query: string
   timestamp: number
-}
-
-type FavoriteItem = {
-  name: string
-  desc: string
-  reason: string
-  link?: string
-  tags?: string[]
 }
 
 type HomeFilters = {
@@ -106,26 +101,6 @@ const buildNextHistory = (currentHistory: SearchHistoryItem[], query: string): S
   return [{ query, timestamp: Date.now() }, ...deduplicatedHistory].slice(0, HISTORY_LIMIT)
 }
 
-const sanitizeFavoriteItem = (input: unknown): FavoriteItem | null => {
-  if (!input || typeof input !== "object") return null
-  const candidate = input as Partial<FavoriteItem>
-  if (typeof candidate.name !== "string" || !candidate.name.trim()) return null
-  if (typeof candidate.desc !== "string" || !candidate.desc.trim()) return null
-  if (typeof candidate.reason !== "string" || !candidate.reason.trim()) return null
-
-  const sanitizedTags = Array.isArray(candidate.tags)
-    ? candidate.tags.filter((tag): tag is string => typeof tag === "string" && tag.trim().length > 0)
-    : undefined
-
-  return {
-    name: candidate.name,
-    desc: candidate.desc,
-    reason: candidate.reason,
-    link: typeof candidate.link === "string" && candidate.link.trim().length > 0 ? candidate.link : undefined,
-    tags: sanitizedTags && sanitizedTags.length > 0 ? sanitizedTags : undefined,
-  }
-}
-
 const getFavoriteAiScore = (tool: FavoriteItem) => {
   const source = `${tool.desc} ${tool.reason} ${(tool.tags ?? []).join(" ")}`
   const matches = source.match(AI_KEYWORD_REGEX)
@@ -133,6 +108,8 @@ const getFavoriteAiScore = (tool: FavoriteItem) => {
 }
 
 export default function Home() {
+  const { data: session, status: sessionStatus } = useSession()
+  const isLoggedIn = sessionStatus === "authenticated"
   const categories = ["写代码", "做PPT", "画图", "写作"] as const
   const [query, setQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<(typeof categories)[number] | null>(null)
@@ -191,6 +168,7 @@ export default function Home() {
     })
   }, [activeFilters, results])
   const getMatchedCategory = (value: string) => categories.find((category) => category === value) ?? null
+  const userNameInitial = (session?.user?.name ?? session?.user?.email ?? "U").charAt(0).toUpperCase()
 
   useEffect(() => {
     try {
@@ -214,26 +192,72 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
+    if (sessionStatus === "loading") return
+    setFavoritesHydrated(false)
+
+    if (isLoggedIn) {
+      const loadAccountFavorites = async () => {
+        try {
+          const response = await fetch("/api/favorites")
+          if (!response.ok) throw new Error("favorites fetch failed")
+          const data = (await response.json()) as { favorites?: unknown[] }
+          const rawFavorites = Array.isArray(data.favorites) ? data.favorites : []
+          const sanitized = rawFavorites
+            .map((item) => sanitizeFavoriteItem(item))
+            .filter((item): item is FavoriteItem => !!item)
+            .slice(0, FAVORITES_LIMIT)
+          setFavorites(sanitized)
+        } catch {
+          setFavorites([])
+        } finally {
+          setFavoritesHydrated(true)
+        }
+      }
+      void loadAccountFavorites()
+      return
+    }
+
     try {
       const stored = localStorage.getItem(FAVORITES_STORAGE_KEY)
-      if (!stored) return
-
-      const parsed = JSON.parse(stored) as unknown[]
-      if (!Array.isArray(parsed)) return
-
-      const sanitized = parsed.map((item) => sanitizeFavoriteItem(item)).filter((item): item is FavoriteItem => !!item)
-      setFavorites(sanitized.slice(0, FAVORITES_LIMIT))
+      if (!stored) {
+        setFavorites([])
+      } else {
+        const parsed = JSON.parse(stored) as unknown[]
+        if (!Array.isArray(parsed)) {
+          setFavorites([])
+        } else {
+          const sanitized = parsed
+            .map((item) => sanitizeFavoriteItem(item))
+            .filter((item): item is FavoriteItem => !!item)
+          setFavorites(sanitized.slice(0, FAVORITES_LIMIT))
+        }
+      }
     } catch {
       setFavorites([])
     } finally {
       setFavoritesHydrated(true)
     }
-  }, [])
+  }, [isLoggedIn, sessionStatus])
 
   useEffect(() => {
-    if (!favoritesHydrated) return
+    if (!favoritesHydrated || sessionStatus === "loading") return
+
+    if (isLoggedIn) {
+      const saveAccountFavorites = async () => {
+        await fetch("/api/favorites", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ favorites }),
+        })
+      }
+      void saveAccountFavorites()
+      return
+    }
+
     localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites))
-  }, [favorites, favoritesHydrated])
+  }, [favorites, favoritesHydrated, isLoggedIn, sessionStatus])
 
   const saveHistory = (inputQuery: string) => {
     const normalizedQuery = inputQuery.trim()
@@ -409,6 +433,25 @@ export default function Home() {
       className={cn("min-h-screen flex flex-col items-center justify-center px-4 py-16", MAIN_COMPARE_PADDING_CLASS)}
     >
       <div className="w-full max-w-3xl flex flex-col items-center gap-12">
+        <div className="w-full flex justify-end">
+          {isLoggedIn ? (
+            <div className="flex items-center gap-3 rounded-full border border-border/70 bg-muted/20 px-3 py-1.5">
+              <Avatar className="size-7">
+                <AvatarImage src={session?.user?.image ?? ""} alt={session?.user?.name ?? "User avatar"} />
+                <AvatarFallback>{userNameInitial}</AvatarFallback>
+              </Avatar>
+              <span className="max-w-40 truncate text-sm text-foreground">{session?.user?.name ?? "User"}</span>
+              <Button type="button" size="sm" variant="outline" onClick={() => void signOut()}>
+                退出登录
+              </Button>
+            </div>
+          ) : (
+            <Button type="button" variant="outline" onClick={() => void signIn("google")} disabled={sessionStatus === "loading"}>
+              Log in with Google
+            </Button>
+          )}
+        </div>
+
         {/* 标题区域 */}
         <div className="text-center">
           <h1 className="text-4xl md:text-5xl font-bold text-foreground tracking-tight text-balance">
@@ -514,12 +557,18 @@ export default function Home() {
 
           <div className="rounded-xl border border-border/70 bg-muted/20 p-3 sm:p-4">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">
-                    我的工具库（<span aria-label={`${favorites.length} 个工具`}>{favorites.length}</span>）
-                  </p>
-                  <p className="text-xs text-muted-foreground">收藏列表与搜索和对比功能独立，可随时取消收藏</p>
-                </div>
+                 <div>
+                   <p className="text-sm font-semibold text-foreground">
+                     我的工具库（<span aria-label={`${favorites.length} 个工具`}>{favorites.length}</span>）
+                   </p>
+                   <p className="text-xs text-muted-foreground">收藏列表与搜索和对比功能独立，可随时取消收藏</p>
+                   <p
+                     className="text-xs text-muted-foreground"
+                     aria-label={`Favorites storage location: ${isLoggedIn ? "Saved to your account" : "Saved locally"}`}
+                   >
+                     {isLoggedIn ? "Saved to your account" : "Saved locally"}
+                   </p>
+                 </div>
                 <select
                   value={favoriteSortMode}
                   onChange={(event) => setFavoriteSortMode(event.target.value as "name" | "ai" | "scenario")}
