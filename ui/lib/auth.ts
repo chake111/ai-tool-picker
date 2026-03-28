@@ -16,14 +16,14 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async jwt({ token, user }) {
-      if (user?.email) {
-        token.sub = user.email
-      }
+      // Keep provider-issued sub as stable identity key; avoid overriding with mutable email.
       return token
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.sub ?? session.user.email ?? ""
+        // Backward compatibility: fall back to email only when stable id is unavailable.
+        const stableId = typeof token.sub === "string" ? token.sub.trim() : ""
+        session.user.id = stableId || session.user.email || ""
       }
       return session
     },

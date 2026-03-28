@@ -13,7 +13,10 @@ const TOOL_ID_MAX_LENGTH = 255
 
 const getUserKey = async () => {
   const session = await getServerSession(authOptions)
-  const email = session?.user?.email
+  const stableId = session?.user?.id?.trim()
+  if (stableId) return stableId
+  // Backward compatibility for sessions/providers that do not expose a stable id.
+  const email = session?.user?.email?.trim()
   if (!email) return null
   return email
 }
