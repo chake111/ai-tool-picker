@@ -89,6 +89,13 @@ Open [http://localhost:3000](http://localhost:3000).
 
 When tracking persistence is enabled, `DATABASE_URL` is required because `/api/track` writes into `user_events` via Prisma.
 
+Event-to-DB field mapping:
+
+- `action` <- request `event`
+- `toolId` <- request `toolId` (nullable)
+- `keyword` <- request `keyword` (nullable)
+- `userId` <- `session.user.id` (nullable)
+
 ```bash
 cd ui
 npx prisma migrate dev
