@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server"
-import type { RecommendItem } from "@/lib/recommend"
+import type {
+  RankedTool,
+  RecommendItem,
+  ToolEmbeddingRecord,
+  UserBehaviorPayload,
+  UserEmbeddingProfile,
+} from "@/lib/recommend"
+import { USER_BEHAVIOR_WEIGHTS, cosineSimilarity } from "@/lib/recommend"
 
 type RecommendRequest = {
   query: string
@@ -219,26 +226,6 @@ function buildToolEmbeddingText(tool: ToolDatasetItem): string {
   ].join("\n")
 }
 
-function cosineSimilarity(a: number[], b: number[]): number {
-  if (!a.length || !b.length || a.length !== b.length) {
-    return -1
-  }
-  let dot = 0
-  let normA = 0
-  let normB = 0
-  for (let i = 0; i < a.length; i += 1) {
-    const av = a[i]
-    const bv = b[i]
-    dot += av * bv
-    normA += av * av
-    normB += bv * bv
-  }
-  if (normA === 0 || normB === 0) {
-    return -1
-  }
-  return dot / (Math.sqrt(normA) * Math.sqrt(normB))
-}
-
 async function createEmbedding(input: string): Promise<number[]> {
   const zhipuApiKey = process.env.ZHIPU_API_KEY
   if (zhipuApiKey) {
@@ -312,7 +299,7 @@ async function getToolEmbeddings(): Promise<ToolEmbeddingItem[]> {
   }
 }
 
-function topToolsByEmbedding(queryEmbedding: number[], toolEmbeddings: ToolEmbeddingItem[], limit = 3): ToolDatasetItem[] {
+function topToolsByCosineSimilarity(queryEmbedding: number[], toolEmbeddings: ToolEmbeddingItem[], limit = 3): ToolDatasetItem[] {
   return toolEmbeddings
     .map((item) => ({
       tool: item.tool,
@@ -321,6 +308,76 @@ function topToolsByEmbedding(queryEmbedding: number[], toolEmbeddings: ToolEmbed
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
     .map((item) => item.tool)
+}
+
+function toToolEmbeddingRecord(item: ToolEmbeddingItem): ToolEmbeddingRecord {
+  return {
+    toolId: item.tool.name,
+    title: item.tool.name,
+    description: item.tool.description,
+    embedding: item.embedding,
+    tags: item.tool.tags,
+  }
+}
+
+function weightedAverageEmbeddings(inputs: Array<{ embedding: number[]; weight: number }>): number[] {
+  if (!inputs.length) return []
+  const dimension = inputs[0].embedding.length
+  if (!dimension) return []
+
+  const sums = new Array(dimension).fill(0) as number[]
+  let totalWeight = 0
+
+  for (const input of inputs) {
+    if (input.weight <= 0 || input.embedding.length !== dimension) continue
+    totalWeight += input.weight
+    for (let i = 0; i < dimension; i += 1) {
+      sums[i] += input.embedding[i] * input.weight
+    }
+  }
+
+  if (totalWeight === 0) throw new Error("No valid weighted vectors for user embedding")
+  return sums.map((value) => value / totalWeight)
+}
+
+async function buildUserProfileEmbedding(
+  payload: UserBehaviorPayload,
+  toolEmbeddings: ToolEmbeddingItem[],
+): Promise<UserEmbeddingProfile | null> {
+  const searchKeywords = (payload.searchKeywords ?? []).map((item) => item.trim()).filter(Boolean)
+  const favoriteToolIds = (payload.favoriteToolIds ?? []).map((item) => item.trim()).filter(Boolean)
+
+  const vectors: Array<{ embedding: number[]; weight: number }> = []
+  for (const keyword of searchKeywords) {
+    vectors.push({ embedding: await createEmbedding(keyword), weight: USER_BEHAVIOR_WEIGHTS.search })
+  }
+
+  const toolMap = new Map(toolEmbeddings.map((item) => [item.tool.name.toLowerCase(), item.embedding]))
+  for (const toolId of favoriteToolIds) {
+    const embedding = toolMap.get(toolId.toLowerCase())
+    if (!embedding) continue
+    vectors.push({ embedding, weight: USER_BEHAVIOR_WEIGHTS.favorite })
+  }
+
+  const embedding = weightedAverageEmbeddings(vectors)
+  if (!embedding.length) return null
+
+  return {
+    userId: "session-user",
+    embedding,
+    eventCount: searchKeywords.length + favoriteToolIds.length,
+    updatedAt: Date.now(),
+  }
+}
+
+function rankToolsForUser(profile: UserEmbeddingProfile, toolRecords: ToolEmbeddingRecord[], limit = 3): RankedTool[] {
+  return toolRecords
+    .map((tool) => ({
+      toolId: tool.toolId,
+      score: cosineSimilarity(profile.embedding, tool.embedding),
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
 }
 
 function toRecommendItem(tool: ToolDatasetItem): RecommendItem {
@@ -645,11 +702,34 @@ export async function POST(request: Request) {
   if (!query) {
     return NextResponse.json({ error: "Invalid query" }, { status: 400 })
   }
+  const userBehavior = body && typeof body === "object" ? (body as RecommendRequest & UserBehaviorPayload) : null
   const safeQuery = query.replace(/[\u0000-\u001F\u007F]/g, " ").slice(0, 1000)
 
   try {
     const [queryEmbedding, toolEmbeddings] = await Promise.all([createEmbedding(safeQuery), getToolEmbeddings()])
-    const topTools = topToolsByEmbedding(queryEmbedding, toolEmbeddings, 3)
+    const topTools = topToolsByCosineSimilarity(queryEmbedding, toolEmbeddings, 3)
+
+    if (userBehavior) {
+      const userProfile = await buildUserProfileEmbedding(userBehavior, toolEmbeddings)
+      if (userProfile) {
+        const rankedByUser = rankToolsForUser(
+          userProfile,
+          toolEmbeddings.map(toToolEmbeddingRecord),
+          3,
+        )
+        const toolByName = new Map(toolEmbeddings.map((item) => [item.tool.name.toLowerCase(), item.tool]))
+        const rankedTools = rankedByUser
+          .map((item) => toolByName.get(item.toolId.toLowerCase()))
+          .filter((item): item is ToolDatasetItem => !!item)
+        const rankedSet = new Set(rankedTools.map((item) => item.name.toLowerCase()))
+        const mergedTools = [
+          ...rankedTools,
+          ...topTools.filter((item) => !rankedSet.has(item.name.toLowerCase())),
+        ].slice(0, 3)
+
+        return NextResponse.json(normalizeRecommendations(mergedTools.map(toRecommendItem), safeQuery).slice(0, 3))
+      }
+    }
 
     const refined = await refineTopToolsWithLLM(safeQuery, topTools)
     if (refined) {
