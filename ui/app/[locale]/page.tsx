@@ -362,7 +362,7 @@ export default function Home() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ query: normalizedQuery }),
+        body: JSON.stringify({ query: normalizedQuery, locale: locale === "zh" ? "zh" : "en" }),
       })
 
       if (!response.ok) {
