@@ -544,14 +544,16 @@ export default function Home() {
         </div>
 
         {/* 标题区域 */}
-        <div className="text-center">
-          <h1 className="text-4xl md:text-5xl font-bold text-foreground tracking-tight text-balance">
-            {t("home.title")}
-          </h1>
-          <p className="mt-4 text-lg text-muted-foreground">
-            {t("home.subtitle")}
-          </p>
-        </div>
+        {results.length === 0 && (
+          <div className="text-center">
+            <h1 className="text-4xl md:text-5xl font-bold text-foreground tracking-tight text-balance">
+              {t("home.title")}
+            </h1>
+            <p className="mt-4 text-lg text-muted-foreground">
+              {t("home.subtitle")}
+            </p>
+          </div>
+        )}
 
         {/* 分类快捷入口 + 搜索输入 */}
         <div className="w-full max-w-2xl flex flex-col gap-4">
