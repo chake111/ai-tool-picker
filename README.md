@@ -11,6 +11,10 @@ Describe your need, and AI Tool Picker recommends the best-fit tool with a clear
   - **LLM fallback** (Zhipu GLM-4-Flash) for broader intent understanding
 - **Personalized recommendation reason**: each result explains *why this tool fits your request*.
 - **History & favorites**: revisit past searches and save go-to tools.
+- **Google login**: sign in with Google for a real product-like account experience.
+- **Session-based favorites sync**:
+  - guest mode → favorites saved in localStorage
+  - logged-in mode → favorites saved to `/api/favorites` per user
 - **Category shortcuts**: jump quickly by scenarios like writing, coding, design, and productivity.
 - **Tool comparison**: compare candidates side by side before deciding.
 - **Official website redirect**: open each tool's official page directly.
@@ -26,13 +30,16 @@ Describe your need, and AI Tool Picker recommends the best-fit tool with a clear
 
 ### Backend
 - Next.js API Route (`/api/recommend`)
+- NextAuth API Route (`/api/auth/[...nextauth]`)
+- Favorites API Route (`/api/favorites`)
 
 ### AI
 - [智谱 GLM-4-Flash](https://open.bigmodel.cn/)
 - Structured **JSON response** for predictable rendering and easy extensibility
 
-### Local Persistence
-- `localStorage` for history, favorites, and lightweight personalization
+### Persistence
+- `localStorage` for search history and guest favorites
+- in-memory per-user favorites via `/api/favorites` when logged in
 
 ## 🚀 Getting Started
 
@@ -55,6 +62,16 @@ Create a `.env.local` file in `/ui`:
 
 ```bash
 ZHIPU_API_KEY=your_api_key_here
+NEXTAUTH_SECRET=your_nextauth_secret_here
+GOOGLE_CLIENT_ID=your_google_client_id_here
+GOOGLE_CLIENT_SECRET=your_google_client_secret_here
+NEXTAUTH_URL=http://localhost:3000
+```
+
+You can generate `NEXTAUTH_SECRET` with:
+
+```bash
+openssl rand -base64 32
 ```
 
 ### 4) Run locally
@@ -84,7 +101,7 @@ Enter your goal in natural language, then review the recommendation card:
 You can deploy quickly on [Vercel](https://vercel.com/):
 
 1. Import this repository into Vercel.
-2. Set environment variables (e.g., `ZHIPU_API_KEY`).
+2. Set environment variables (e.g., `ZHIPU_API_KEY`, `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_URL`).
 3. Deploy with default Next.js settings.
 
 For self-hosting:
