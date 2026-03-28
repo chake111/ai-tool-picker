@@ -1,4 +1,5 @@
 export type FavoriteItem = {
+  toolId?: string
   name: string
   desc: string
   reason: string
@@ -7,7 +8,6 @@ export type FavoriteItem = {
 }
 
 const FAVORITES_LIMIT = 30
-const userFavorites = new Map<string, FavoriteItem[]>()
 
 export const sanitizeFavoriteItem = (input: unknown): FavoriteItem | null => {
   if (!input || typeof input !== "object") return null
@@ -21,23 +21,13 @@ export const sanitizeFavoriteItem = (input: unknown): FavoriteItem | null => {
     : undefined
 
   return {
+    toolId: typeof candidate.toolId === "string" && candidate.toolId.trim().length > 0 ? candidate.toolId.trim() : undefined,
     name: candidate.name,
     desc: candidate.desc,
     reason: candidate.reason,
     link: typeof candidate.link === "string" && candidate.link.trim().length > 0 ? candidate.link : undefined,
     tags: sanitizedTags && sanitizedTags.length > 0 ? sanitizedTags : undefined,
   }
-}
-
-export const getUserFavorites = (userKey: string) => userFavorites.get(userKey) ?? []
-
-export const setUserFavorites = (userKey: string, favorites: FavoriteItem[]) => {
-  const sanitized = favorites
-    .map((item) => sanitizeFavoriteItem(item))
-    .filter((item): item is FavoriteItem => !!item)
-    .slice(0, FAVORITES_LIMIT)
-  userFavorites.set(userKey, sanitized)
-  return sanitized
 }
 
 export const FAVORITES_MAX_COUNT = FAVORITES_LIMIT
