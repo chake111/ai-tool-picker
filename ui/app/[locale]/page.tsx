@@ -622,34 +622,6 @@ export default function Home() {
             </div>
           )}
 
-          {results.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-              <p className="text-xs text-muted-foreground">{t("filters.title")}</p>
-              {FILTER_OPTIONS.map((filter) => {
-                const selected = activeFilters[filter.key as keyof typeof activeFilters]
-                const isPriceFilter = filter.group === "price"
-                return (
-                  <button
-                    key={filter.key}
-                    type="button"
-                    onClick={() => handleFilterToggle(filter.key as keyof typeof activeFilters)}
-                    className={cn(
-                      "rounded-full border px-3 py-1 text-xs transition-colors",
-                      selected
-                        ? "border-foreground bg-foreground text-background"
-                        : "border-border bg-background text-foreground hover:bg-muted",
-                    )}
-                    aria-pressed={selected}
-                    role={isPriceFilter ? "radio" : undefined}
-                    aria-checked={isPriceFilter ? selected : undefined}
-                  >
-                    {t(`filters.options.${filter.key}`)}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-
           {favoriteLimitHint && (
             <div
               className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700"
@@ -785,19 +757,44 @@ export default function Home() {
 
         {/* 结果列表 */}
           {results.length > 0 && !isLoading && (
-             <div className="mt-6 w-full max-w-2xl border-t border-border/70 pt-6 flex flex-col gap-4">
-             <div ref={resultsTitleRef} className="flex flex-col gap-1">
-                <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                  <Search className="size-4 text-primary" aria-hidden="true" />
-                  <span>{t("home.resultsTitle")}</span>
-                  <Badge className="font-semibold">{t("home.resultsCount", { count: filteredResults.length })}</Badge>
-                </p>
-                <p className="text-xs text-muted-foreground">{t("home.resultsSubtitle")}</p>
-              </div>
-              {compareLimitHint && (
-                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
-                  {compareLimitHint}
-                </div>
+             <div className="mt-6 w-full max-w-2xl border-t border-border/70 pt-6 flex flex-col gap-3">
+              <div ref={resultsTitleRef} className="flex flex-col gap-1">
+                 <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                   <Search className="size-4 text-primary" aria-hidden="true" />
+                   <span>{t("home.resultsTitle")}</span>
+                   <Badge className="font-semibold">{t("home.resultsCount", { count: filteredResults.length })}</Badge>
+                 </p>
+                 <p className="text-xs text-muted-foreground">{t("home.resultsSubtitle")}</p>
+               </div>
+               <div className="flex flex-wrap items-center gap-2">
+                 <p className="text-xs text-muted-foreground">{t("filters.title")}</p>
+                 {FILTER_OPTIONS.map((filter) => {
+                   const selected = activeFilters[filter.key as keyof typeof activeFilters]
+                   const isPriceFilter = filter.group === "price"
+                   return (
+                     <button
+                       key={filter.key}
+                       type="button"
+                       onClick={() => handleFilterToggle(filter.key as keyof typeof activeFilters)}
+                       className={cn(
+                         "rounded-full border px-3 py-1 text-xs transition-colors",
+                         selected
+                           ? "border-foreground bg-foreground text-background"
+                           : "border-border bg-background text-foreground hover:bg-muted",
+                       )}
+                       aria-pressed={selected}
+                       role={isPriceFilter ? "radio" : undefined}
+                       aria-checked={isPriceFilter ? selected : undefined}
+                     >
+                       {t(`filters.options.${filter.key}`)}
+                     </button>
+                   )
+                 })}
+               </div>
+               {compareLimitHint && (
+                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+                   {compareLimitHint}
+                 </div>
               )}
               {filteredResults.map((item) => (
                  <Card
