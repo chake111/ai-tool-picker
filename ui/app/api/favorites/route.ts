@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth"
 import { NextResponse } from "next/server"
+import { createHash } from "node:crypto"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import {
@@ -8,6 +9,8 @@ import {
   type FavoriteItem,
 } from "@/lib/favorites-store"
 
+const TOOL_ID_MAX_LENGTH = 255
+
 const getUserKey = async () => {
   const session = await getServerSession(authOptions)
   const email = session?.user?.email
@@ -15,7 +18,9 @@ const getUserKey = async () => {
   return email
 }
 
-const toToolId = (favorite: FavoriteItem) => (favorite.toolId?.trim() || favorite.name.trim()).slice(0, 255)
+// Keep backwards compatibility for existing payloads: when toolId is absent, use name as stable identifier.
+const toToolId = (favorite: FavoriteItem) => (favorite.toolId?.trim() || favorite.name.trim()).slice(0, TOOL_ID_MAX_LENGTH)
+const hashUserKey = (userKey: string) => createHash("sha256").update(userKey).digest("hex").slice(0, 12)
 const toResponseFavorite = (favorite: FavoriteItem) => ({
   name: favorite.name,
   desc: favorite.desc,
@@ -94,9 +99,9 @@ export async function POST(request: Request) {
 
   const nextFavorites = dedupeFavorites(
     rawFavorites
-    .map((item) => sanitizeFavoriteItem(item))
-    .filter((item): item is FavoriteItem => !!item)
-    .slice(0, FAVORITES_MAX_COUNT),
+      .map((item) => sanitizeFavoriteItem(item))
+      .filter((item): item is FavoriteItem => !!item)
+      .slice(0, FAVORITES_MAX_COUNT),
   )
 
   try {
@@ -119,7 +124,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("[favorites] db_write_failed", {
       operation: "post",
-      userId: userKey,
+      userKeyHash: hashUserKey(userKey),
       favoritesCount: nextFavorites.length,
       error: error instanceof Error ? error.message : "unknown_error",
     })
