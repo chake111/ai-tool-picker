@@ -13,7 +13,11 @@ export function IntlProvider({ children, locale, messages }: IntlProviderProps) 
     <NextIntlClientProvider
       locale={locale}
       messages={messages}
-      onError={() => {}}
+      onError={(error) => {
+        if (process.env.NODE_ENV !== "production") {
+          console.error(error)
+        }
+      }}
       getMessageFallback={({ namespace, key }) =>
         namespace ? `${namespace}.${key}` : key
       }

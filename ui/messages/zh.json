@@ -1,4 +1,8 @@
 {
+  "metadata": {
+    "title": "AI选择器 - 帮你选最合适的AI工具",
+    "description": "输入你的需求，我们帮你找到最适合的AI工具"
+  },
   "common": {
     "thinking": "思考中...",
     "visitWebsite": "访问官网",
@@ -7,7 +11,8 @@
   "auth": {
     "loginWithGoogle": "使用 Google 登录",
     "logout": "退出登录",
-    "userAvatarAlt": "用户头像"
+    "userAvatarAlt": "用户头像",
+    "userFallback": "用户"
   },
   "home": {
     "title": "帮你选 AI",

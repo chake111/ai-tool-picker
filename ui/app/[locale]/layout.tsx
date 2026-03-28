@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { hasLocale } from 'next-intl'
-import { getMessages, setRequestLocale } from 'next-intl/server'
+import { getMessages, getTranslations, setRequestLocale } from 'next-intl/server'
 import { AuthSessionProvider } from '@/components/auth-session-provider'
 import { IntlProvider } from '@/components/intl-provider'
 import { routing } from '@/i18n/routing'
@@ -21,15 +21,12 @@ export async function generateMetadata({ params }: Omit<LocaleLayoutProps, 'chil
     }
   }
 
-  return locale === 'zh'
-    ? {
-        title: 'AI选择器 - 帮你选最合适的AI工具',
-        description: '输入你的需求，我们帮你找到最适合的AI工具',
-      }
-    : {
-        title: 'AI Tool Picker - Find the Best AI Tool for You',
-        description: 'Tell me what you want to do, and I will recommend the best AI tools.',
-      }
+  const t = await getTranslations({ locale, namespace: 'metadata' })
+
+  return {
+    title: t('title'),
+    description: t('description'),
+  }
 }
 
 export default async function LocaleLayout({ children, params }: LocaleLayoutProps) {

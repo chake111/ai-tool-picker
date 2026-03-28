@@ -1,4 +1,8 @@
 {
+  "metadata": {
+    "title": "AI Tool Picker - Find the Best AI Tool for You",
+    "description": "Tell me what you want to do, and I will recommend the best AI tools."
+  },
   "common": {
     "thinking": "Thinking...",
     "visitWebsite": "Visit website",
@@ -7,7 +11,8 @@
   "auth": {
     "loginWithGoogle": "Log in with Google",
     "logout": "Log out",
-    "userAvatarAlt": "User avatar"
+    "userAvatarAlt": "User avatar",
+    "userFallback": "User"
   },
   "home": {
     "title": "Let me pick AI for you",

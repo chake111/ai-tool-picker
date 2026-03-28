@@ -519,7 +519,9 @@ export default function Home() {
                 <AvatarImage src={session?.user?.image ?? ""} alt={t("auth.userAvatarAlt")} />
                 <AvatarFallback>{userNameInitial}</AvatarFallback>
               </Avatar>
-              <span className="max-w-40 truncate text-sm text-foreground">{session?.user?.name ?? "User"}</span>
+              <span className="max-w-40 truncate text-sm text-foreground">
+                {session?.user?.name ?? t("auth.userFallback")}
+              </span>
               <Button type="button" size="sm" variant="outline" onClick={() => void signOut()}>
                 {t("auth.logout")}
               </Button>
