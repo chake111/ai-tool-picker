@@ -651,7 +651,7 @@ export default function Home() {
                          aria-label={t("favorites.countAria", { count: favorites.length })}
                          className="font-semibold"
                        >
-                         {`(${favorites.length})`}
+                         {t("favorites.countDisplay", { count: favorites.length })}
                        </Badge>
                      </p>
                      <p className="text-xs text-muted-foreground">{t("favorites.subtitle")}</p>
@@ -761,7 +761,7 @@ export default function Home() {
                 <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
                   <Search className="size-4 text-primary" aria-hidden="true" />
                   <span>{t("home.resultsTitle")}</span>
-                  <Badge className="font-semibold">{`(${filteredResults.length})`}</Badge>
+                  <Badge className="font-semibold">{t("home.resultsCount", { count: filteredResults.length })}</Badge>
                 </p>
                 <p className="text-xs text-muted-foreground">{t("home.resultsSubtitle")}</p>
               </div>

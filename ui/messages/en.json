@@ -32,6 +32,7 @@
     },
     "loading": "Finding the best tools for you...",
     "resultsTitle": "Results",
+    "resultsCount": "({count})",
     "resultsSubtitle": "Returned for this search",
     "queryFallback": "query",
     "noResults": "No results for this search",
@@ -51,6 +52,7 @@
   "favorites": {
     "title": "My Favorites",
     "countAria": "{count} tools",
+    "countDisplay": "({count})",
     "subtitle": "Only visible to you, saved for later",
     "storageAria": "Favorites storage location: {where}",
     "storage": {
