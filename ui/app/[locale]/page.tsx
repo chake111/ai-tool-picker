@@ -10,6 +10,14 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -162,6 +170,8 @@ export default function Home() {
   const [onboardingReady, setOnboardingReady] = useState(false)
   const [searchInputFocusSignal, setSearchInputFocusSignal] = useState(0)
   const [postOnboardingExample, setPostOnboardingExample] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize] = useState(6)
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_USER_PREFERENCES)
   const [personalizedPicks, setPersonalizedPicks] = useState<RecommendItem[]>([])
   const [isLoadingPersonalized, setIsLoadingPersonalized] = useState(false)
@@ -245,6 +255,14 @@ export default function Home() {
       })),
     [filteredResults],
   )
+  const totalPages = useMemo(() => {
+    const pages = Math.ceil(displayResults.length / pageSize)
+    return Math.max(1, pages)
+  }, [displayResults.length, pageSize])
+  const paginatedResults = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize
+    return displayResults.slice(startIndex, startIndex + pageSize)
+  }, [currentPage, displayResults, pageSize])
   const getMatchedQuickSceneId = (value: string) => {
     const normalizedValue = value.trim().toLowerCase()
     return (
@@ -387,6 +405,16 @@ export default function Home() {
       resultsTitleRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
     }
   }, [isLoading, results.length])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeFilters, query, results])
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
 
   useEffect(() => {
     const shouldShowPersonalized = hasAnyPreference || localizedHistory.length > 0
@@ -1294,7 +1322,7 @@ export default function Home() {
                    {compareLimitHint}
                  </div>
               )}
-              {displayResults.map((item) => (
+              {paginatedResults.map((item) => (
                  <Card
                     key={item.name}
                     className={cn(
@@ -1397,6 +1425,53 @@ export default function Home() {
                 </div>
               </Card>
             ))}
+              {displayResults.length > 0 && (
+                <Pagination aria-label={t("home.pagination.navAria")}>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href="#"
+                        ariaLabel={t("home.pagination.previousAria")}
+                        label={t("home.pagination.previous")}
+                        onClick={(event) => {
+                          event.preventDefault()
+                          if (currentPage <= 1) return
+                          setCurrentPage((prev) => prev - 1)
+                        }}
+                        className={cn(currentPage <= 1 ? "pointer-events-none opacity-50" : "")}
+                      />
+                    </PaginationItem>
+                    {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+                      <PaginationItem key={`page-${page}`}>
+                        <PaginationLink
+                          href="#"
+                          isActive={currentPage === page}
+                          aria-label={t("home.pagination.pageAria", { page })}
+                          onClick={(event) => {
+                            event.preventDefault()
+                            setCurrentPage(page)
+                          }}
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ))}
+                    <PaginationItem>
+                      <PaginationNext
+                        href="#"
+                        ariaLabel={t("home.pagination.nextAria")}
+                        label={t("home.pagination.next")}
+                        onClick={(event) => {
+                          event.preventDefault()
+                          if (currentPage >= totalPages) return
+                          setCurrentPage((prev) => prev + 1)
+                        }}
+                        className={cn(currentPage >= totalPages ? "pointer-events-none opacity-50" : "")}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              )}
           </div>
         )}
 
