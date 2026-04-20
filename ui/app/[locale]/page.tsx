@@ -361,6 +361,13 @@ export default function Home() {
     void handleSearch(historyQuery)
   }
 
+  const handleSampleQueryClick = (sampleQuery: string) => {
+    setQuery(sampleQuery)
+    setSelectedCategory(getMatchedCategory(sampleQuery))
+    setError("")
+    void handleSearch(sampleQuery)
+  }
+
   const handleClearHistory = () => {
     setHistory([])
     setHistoryCollapsed(true)
@@ -544,6 +551,13 @@ export default function Home() {
             historySuggestions={historySuggestions}
             historyTitle={t("home.history.title")}
             onSuggestionClick={handleHistoryClick}
+            helperText={t("home.searchHelper")}
+            sampleTitle={t("home.sampleQueriesTitle")}
+            sampleQueries={[
+              t("home.sampleQueries.pitchDeck"),
+              t("home.sampleQueries.chinesePolish"),
+            ]}
+            onSampleQueryClick={handleSampleQueryClick}
           />
           {results.length === 0 && (
             <p className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs leading-relaxed text-muted-foreground sm:text-sm">

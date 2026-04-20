@@ -20,11 +20,16 @@
     "title": "Let me pick AI for you",
     "subtitle": "Tell me what you want to do and I will recommend the most suitable AI tools",
     "heroHint": "Describe your goal in one sentence and we will return 3-6 practical picks.",
-    "searchPlaceholder": "I want to make a PPT",
     "searchPlaceholder": "Describe your needs, e.g. I want to make a PPT",
+    "searchHelper": "We’ll return the best-matching AI tools with brief use-case notes.",
     "searchEmptyPrompt": "Please enter your needs",
     "searchAction": "Pick for me",
     "examples": "Input examples: \"I need a pitch deck for fundraising\" or \"Help me draft short video scripts.\" Expected result: tools by scenario with why they fit and official links.",
+    "sampleQueriesTitle": "Try:",
+    "sampleQueries": {
+      "pitchDeck": "Create a product pitch deck PPT",
+      "chinesePolish": "Polish Chinese writing"
+    },
     "history": {
       "title": "Search history",
       "clear": "Clear history",
