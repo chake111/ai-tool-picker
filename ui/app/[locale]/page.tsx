@@ -10,6 +10,12 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   Drawer,
   DrawerContent,
   DrawerDescription,
@@ -182,6 +188,7 @@ export default function Home() {
     query: string
   } | null>(null)
   const resultsTitleRef = useRef<HTMLDivElement>(null)
+  const onboardingPrimaryActionRef = useRef<HTMLButtonElement>(null)
   const lastExposureSignatureRef = useRef("")
   const resultRankMap = useMemo(() => {
     return new Map(results.map((item, index) => [item.name, index]))
@@ -752,6 +759,12 @@ export default function Home() {
     }, 50)
   }
 
+  const handleOnboardingOpenChange = (open: boolean) => {
+    if (open) return
+    if (!showOnboarding) return
+    finishOnboarding(false)
+  }
+
   return (
     <main
       className={cn("min-h-screen flex flex-col items-center justify-center px-4 py-16", MAIN_COMPARE_PADDING_CLASS)}
@@ -779,34 +792,53 @@ export default function Home() {
           )}
         </div>
 
-        {onboardingReady && showOnboarding && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/85 p-4 backdrop-blur-sm sm:items-center sm:p-6">
-            <div className="w-full max-w-xl rounded-2xl border border-border bg-card p-4 shadow-2xl sm:p-6">
-              <div className="space-y-2">
-                <h2 className="text-lg font-semibold text-foreground sm:text-xl">{t("home.onboarding.title")}</h2>
-                <p className="text-sm text-muted-foreground sm:text-base">{t("home.onboarding.subtitle")}</p>
-              </div>
-              <ul className="mt-4 space-y-3 rounded-xl border border-border/70 bg-muted/30 p-3 text-sm sm:text-base">
-                <li className="rounded-lg bg-background px-3 py-2 text-foreground">{t("home.onboarding.inputWay")}</li>
-                <li className="rounded-lg bg-background px-3 py-2 text-foreground">{t("home.onboarding.useCases")}</li>
-                <li className="rounded-lg bg-background px-3 py-2 text-foreground">{t("home.onboarding.outputFormat")}</li>
-              </ul>
-              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => finishOnboarding(false)}
-                  className="w-full sm:w-auto"
-                >
-                  {t("home.onboarding.skip")}
-                </Button>
-                <Button type="button" onClick={() => finishOnboarding(true)} className="w-full sm:w-auto">
-                  {t("home.onboarding.startNow")}
-                </Button>
-              </div>
+        <Dialog open={onboardingReady && showOnboarding} onOpenChange={handleOnboardingOpenChange}>
+          <DialogContent
+            showCloseButton={false}
+            className="w-full max-w-xl rounded-2xl border border-border bg-card p-4 shadow-2xl sm:p-6"
+            onOpenAutoFocus={(event) => {
+              event.preventDefault()
+              onboardingPrimaryActionRef.current?.focus()
+            }}
+            onEscapeKeyDown={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              finishOnboarding(false)
+            }}
+            onPointerDownOutside={(event) => {
+              event.preventDefault()
+              finishOnboarding(false)
+            }}
+          >
+            <div className="space-y-2">
+              <DialogTitle className="text-lg text-foreground sm:text-xl">{t("home.onboarding.title")}</DialogTitle>
+              <DialogDescription className="text-sm sm:text-base">{t("home.onboarding.subtitle")}</DialogDescription>
             </div>
-          </div>
-        )}
+            <ul className="mt-4 space-y-3 rounded-xl border border-border/70 bg-muted/30 p-3 text-sm sm:text-base">
+              <li className="rounded-lg bg-background px-3 py-2 text-foreground">{t("home.onboarding.inputWay")}</li>
+              <li className="rounded-lg bg-background px-3 py-2 text-foreground">{t("home.onboarding.useCases")}</li>
+              <li className="rounded-lg bg-background px-3 py-2 text-foreground">{t("home.onboarding.outputFormat")}</li>
+            </ul>
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => finishOnboarding(false)}
+                className="w-full sm:w-auto"
+              >
+                {t("home.onboarding.skip")}
+              </Button>
+              <Button
+                ref={onboardingPrimaryActionRef}
+                type="button"
+                onClick={() => finishOnboarding(true)}
+                className="w-full sm:w-auto"
+              >
+                {t("home.onboarding.startNow")}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* 标题区域 */}
         {results.length === 0 && (
