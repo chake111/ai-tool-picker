@@ -1,10 +1,9 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { ExternalLink, Trash2 } from "lucide-react"
 import { useLocale, useTranslations } from "next-intl"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import { FavoritesList } from "@/components/favorites/favorites-list"
+import { FavoritesToolbar } from "@/components/favorites/favorites-toolbar"
 import { sanitizeFavoriteItem, type FavoriteItem } from "@/lib/favorites-store"
 
 const FAVORITES_STORAGE_KEY = "ai_tool_picker_favorites"
@@ -55,59 +54,26 @@ export default function FavoritesPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-8 sm:px-6 lg:px-8">
-      <section className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">{t("favorites.title")}</h1>
-          <p className="text-sm text-muted-foreground">{t("favorites.subtitle")}</p>
-        </div>
-        <select
-          value={sortMode}
-          onChange={(event) => setSortMode(event.target.value as SortMode)}
-          className="h-9 rounded-md border border-border bg-background px-3 text-sm"
-          aria-label={t("favorites.sortAria")}
-        >
-          <option value="name">{t("favorites.sort.name")}</option>
-          <option value="ai">{t("favorites.sort.ai")}</option>
-          <option value="scenario">{t("favorites.sort.scenario")}</option>
-        </select>
-      </section>
+      <FavoritesToolbar
+        title={t("favorites.title")}
+        subtitle={t("favorites.subtitle")}
+        sortMode={sortMode}
+        onSortChange={setSortMode}
+        sortAriaLabel={t("favorites.sortAria")}
+        nameLabel={t("favorites.sort.name")}
+        aiLabel={t("favorites.sort.ai")}
+        scenarioLabel={t("favorites.sort.scenario")}
+        statsLabel={locale === "zh" ? `共 ${sortedFavorites.length} 项收藏` : `${sortedFavorites.length} favorites`}
+      />
 
-      {sortedFavorites.length === 0 ? (
-        <Card className="p-6 text-sm text-muted-foreground">{t("favorites.empty")}</Card>
-      ) : (
-        <div className="grid gap-3">
-          {sortedFavorites.map((item) => (
-            <Card key={item.name} className="space-y-3 p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-base font-semibold">{item.name}</h2>
-                  <p className="text-sm text-muted-foreground">{item.desc}</p>
-                </div>
-                <Button size="icon-sm" variant="ghost" onClick={() => removeFavorite(item.name)} aria-label={t("favorites.removeOne", { name: item.name })}>
-                  <Trash2 className="size-4" />
-                </Button>
-              </div>
-              <p className="text-sm">{item.reason}</p>
-              <div className="flex flex-wrap gap-2">
-                {(item.tags ?? []).map((tag) => (
-                  <span key={`${item.name}-${tag}`} className="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-              {item.link ? (
-                <Button asChild size="sm" variant="outline">
-                  <a href={item.link} target="_blank" rel="noopener noreferrer">
-                    {t("common.visitWebsite")} <ExternalLink className="ml-1 size-3.5" />
-                  </a>
-                </Button>
-              ) : (
-                <p className="text-xs text-muted-foreground">{t("common.noWebsite")}</p>
-              )}
-            </Card>
-          ))}
-        </div>
-      )}
+      <FavoritesList
+        items={sortedFavorites}
+        emptyLabel={t("favorites.empty")}
+        visitLabel={t("common.visitWebsite")}
+        noWebsiteLabel={t("common.noWebsite")}
+        getRemoveLabel={(name) => t("favorites.removeOne", { name })}
+        onRemove={removeFavorite}
+      />
     </main>
   )
 }

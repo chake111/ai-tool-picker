@@ -3,9 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useLocale, useTranslations } from "next-intl"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
+import { PreferencesForm } from "@/components/preferences/preferences-form"
 
 const PREFERENCES_STORAGE_KEY = "ai_tool_picker_preferences"
 
@@ -74,63 +72,20 @@ export default function PreferencesPage() {
         <p className="text-sm text-muted-foreground">{t("preferences.subtitle")}</p>
       </section>
 
-      <Card className="space-y-4 p-4">
-        <div className="space-y-2">
-          <p className="text-sm font-medium">{locale === "zh" ? "价格偏好" : "Pricing preference"}</p>
-          <div className="flex flex-wrap gap-2">
-            {(["any", "free", "paid"] as const).map((pricing) => (
-              <Button
-                key={pricing}
-                variant={preferences.pricing === pricing ? "default" : "outline"}
-                size="sm"
-                onClick={() => setPreferences((prev) => ({ ...prev, pricing }))}
-              >
-                {t(`preferences.pricing.${pricing}`)}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-sm font-medium">{t("preferences.platformTitle")}</p>
-          <div className="grid gap-2 sm:grid-cols-3">
-            {(["web", "mobile", "desktop"] as const).map((platformKey) => (
-              <label key={platformKey} className="flex items-center gap-2 rounded-md border border-border p-2 text-sm">
-                <Checkbox
-                  checked={preferences.platforms[platformKey]}
-                  onCheckedChange={(checked) =>
-                    setPreferences((prev) => ({
-                      ...prev,
-                      platforms: {
-                        ...prev.platforms,
-                        [platformKey]: Boolean(checked),
-                      },
-                    }))
-                  }
-                />
-                {t(`preferences.platforms.${platformKey}`)}
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <label className="flex items-center gap-2 rounded-md border border-border p-2 text-sm">
-          <Checkbox
-            checked={preferences.chineseFirst}
-            onCheckedChange={(checked) => setPreferences((prev) => ({ ...prev, chineseFirst: Boolean(checked) }))}
-          />
-          {t("preferences.chineseFirst")}
-        </label>
-
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs text-muted-foreground">
-            {status === "authenticated" ? t("preferences.privacy.account") : t("preferences.privacy.local")}
-          </p>
-          <Button variant="outline" size="sm" onClick={() => setPreferences(DEFAULT_USER_PREFERENCES)} disabled={!hasAnyPreference}>
-            {t("preferences.reset")}
-          </Button>
-        </div>
-      </Card>
+      <PreferencesForm
+        locale={locale}
+        preferences={preferences}
+        onChange={setPreferences}
+        onReset={() => setPreferences(DEFAULT_USER_PREFERENCES)}
+        canReset={hasAnyPreference}
+        pricingTitle={locale === "zh" ? "价格偏好" : "Pricing preference"}
+        platformTitle={t("preferences.platformTitle")}
+        chineseFirstLabel={t("preferences.chineseFirst")}
+        resetLabel={t("preferences.reset")}
+        privacyNote={status === "authenticated" ? t("preferences.privacy.account") : t("preferences.privacy.local")}
+        getPricingLabel={(value) => t(`preferences.pricing.${value}`)}
+        getPlatformLabel={(value) => t(`preferences.platforms.${value}`)}
+      />
     </main>
   )
 }
