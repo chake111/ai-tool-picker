@@ -175,7 +175,7 @@
 @layer components {
   .app-page-container {
     @apply mx-auto flex w-full max-w-6xl flex-col px-4 sm:px-6 lg:px-8;
-    gap: var(--space-8);
+    gap: calc(var(--space-8) + var(--space-2));
     padding-top: var(--space-8);
     padding-bottom: 7rem;
   }
@@ -192,6 +192,12 @@
     border: 1px solid var(--border-default);
     border-radius: var(--radius-lg-token);
   }
+
+  .app-panel-muted {
+    background: color-mix(in oklab, var(--surface-muted) 70%, transparent);
+    border: 1px solid color-mix(in oklab, var(--border-default) 90%, transparent);
+  }
+
 
   .app-toolbar {
     @apply flex flex-wrap items-center justify-between;

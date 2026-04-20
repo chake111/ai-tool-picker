@@ -19,9 +19,9 @@
   "home": {
     "title": "Let me pick AI for you",
     "subtitle": "Tell me what you want to do and I will recommend the most suitable AI tools",
-    "heroHint": "Describe your goal in one sentence and we will return 3-6 practical picks.",
-    "searchPlaceholder": "Describe your needs, e.g. I want to make a PPT",
-    "searchHelper": "We’ll return the best-matching AI tools with brief use-case notes.",
+    "heroHint": "Describe your goal in one sentence and get 3-6 executable tool recommendations with reasons.",
+    "searchPlaceholder": "For example: I need a fundraising pitch deck",
+    "searchHelper": "The more specific your input, the better the picks. You can refine by budget, language, and platform.",
     "searchEmptyPrompt": "Please enter your needs",
     "searchAction": "Pick for me",
     "examples": "Input examples: \"I need a pitch deck for fundraising\" or \"Help me draft short video scripts.\" Expected result: tools by scenario with why they fit and official links.",
@@ -66,7 +66,7 @@
       }
     },
     "loading": "Finding the best tools for you...",
-    "resultsTitle": "Results",
+    "resultsTitle": "Results preview",
     "resultsCount": "({count})",
     "resultsSubtitle": "Returned for this search",
     "pagination": {
@@ -79,8 +79,19 @@
     },
     "queryFallback": "query",
     "noResults": "No results for this search",
-    "emptyHint": "Try: make PPT, write copy, draw, write code...",
-    "popularTools": "Popular tools"
+    "emptyHint": "Each result includes fit reasons, who it is best for, caveats, and next actions.",
+    "popularTools": "Popular tools",
+    "trustNote": "Built for beginners, students, and operators who need clear and practical AI tool decisions.",
+    "quickScenesTitle": "Or start from common scenarios",
+    "resultsPreviewSubtitle": "Results are decision-ready recommendations, not just a generic tool list.",
+    "stats": {
+      "countLabel": "Output size",
+      "countValue": "3-6 shortlisted tools each search",
+      "timeLabel": "Decision speed",
+      "timeValue": "Initial shortlist in about 30 seconds",
+      "reasonLabel": "Explainable picks",
+      "reasonValue": "Every recommendation includes fit rationale"
+    }
   },
   "preferences": {
     "title": "Recommendation preferences",
@@ -204,11 +215,24 @@
     },
     "refineInputLabel": "Refine query input",
     "refineInputPlaceholder": "Add more constraints (e.g. low budget, Chinese UI)",
-    "refineSubmit": "Refine"
+    "refineSubmit": "Update results"
   },
   "resultsStates": {
     "loading": "Refreshing recommendations...",
     "empty": "No recommendations yet. Try another query.",
     "noMatch": "No matches for current filters. Adjust filters or clear conditions."
+  },
+  "resultsPage": {
+    "title": "Your decision-ready results",
+    "summary": "Start with top-fit tools, then narrow down using “Best for” and “Caveats”.",
+    "resultCount": "Available options: {count}",
+    "matchScore": "Fit score",
+    "reputation": "Estimated reputation",
+    "reasons": "Why this matches",
+    "bestFor": "Best for",
+    "caveats": "Caveats",
+    "compareReady": "Ready to compare",
+    "inCompare": "Added to compare",
+    "workspaceEyebrow": "Decision workspace"
   }
 }

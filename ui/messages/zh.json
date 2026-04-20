@@ -19,10 +19,10 @@
   "home": {
     "title": "帮你选 AI",
     "subtitle": "告诉我你想做什么，我来推荐最合适的 AI 工具",
-    "heroHint": "1 句话描述目标，我们会返回 3-6 个可直接上手的推荐。",
-    "searchPlaceholder": "我想做PPT",
+    "heroHint": "用一句话描述目标，我们会给出 3-6 个可直接执行的工具推荐与理由。",
+    "searchPlaceholder": "例如：我要做一份融资路演 PPT",
     "searchEmptyPrompt": "请输入你的需求",
-    "searchHelper": "将返回最匹配的 AI 工具及用途说明。",
+    "searchHelper": "输入越具体，推荐越准确。支持继续补充预算、语言、平台等约束。",
     "searchAction": "帮我选",
     "examples": "输入示例：\"我想做一份融资路演 PPT\"、\"帮我写短视频脚本\"。结果预期：按场景给出工具名称、适用理由与官网链接。",
     "sampleQueriesTitle": "试试：",
@@ -66,7 +66,7 @@
       }
     },
     "loading": "正在为你寻找最佳工具...",
-    "resultsTitle": "推荐结果",
+    "resultsTitle": "推荐结果预览",
     "resultsCount": "({count})",
     "resultsSubtitle": "本次搜索返回",
     "pagination": {
@@ -79,8 +79,19 @@
     },
     "queryFallback": "关键词",
     "noResults": "本次搜索没有匹配结果",
-    "emptyHint": "试试输入：做PPT、写文案、画图、写代码...",
-    "popularTools": "热门工具"
+    "emptyHint": "你将看到每个工具的推荐理由、适用人群、注意事项和下一步动作。",
+    "popularTools": "热门工具",
+    "trustNote": "已为新手、学生和运营同学提供清晰可执行的 AI 工具建议。",
+    "quickScenesTitle": "或从高频场景快速开始",
+    "resultsPreviewSubtitle": "推荐结果不是简单列表，而是带理由的决策建议。",
+    "stats": {
+      "countLabel": "输出数量",
+      "countValue": "每次 3-6 个候选工具",
+      "timeLabel": "决策速度",
+      "timeValue": "通常 30 秒内完成初选",
+      "reasonLabel": "结果可解释",
+      "reasonValue": "每个推荐都附带匹配理由"
+    }
   },
   "preferences": {
     "title": "推荐偏好设置",
@@ -204,11 +215,24 @@
     },
     "refineInputLabel": "结果精修输入",
     "refineInputPlaceholder": "继续补充需求（例如：预算有限、中文界面）",
-    "refineSubmit": "Refine"
+    "refineSubmit": "更新结果"
   },
   "resultsStates": {
     "loading": "正在更新推荐结果...",
     "empty": "暂时没有找到可推荐的工具，试试换个描述。",
     "noMatch": "当前筛选条件下无匹配结果，请调整筛选或清空条件。"
+  },
+  "resultsPage": {
+    "title": "你的工具决策结果",
+    "summary": "先看匹配度最高的工具，再结合“更适合 / 注意事项”进行筛选与对比。",
+    "resultCount": "当前可选工具：{count} 个",
+    "matchScore": "推荐匹配度",
+    "reputation": "用户口碑估计",
+    "reasons": "推荐理由",
+    "bestFor": "更适合",
+    "caveats": "注意事项",
+    "compareReady": "可加入对比",
+    "inCompare": "已加入对比清单",
+    "workspaceEyebrow": "决策工作台"
   }
 }

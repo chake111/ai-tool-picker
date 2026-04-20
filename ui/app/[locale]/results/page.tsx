@@ -169,7 +169,18 @@ export default function ResultsPage() {
       {searchFlow.error && <p className="text-sm text-destructive">{searchFlow.error}</p>}
 
       <ResultsList
-        title={t("home.resultsTitle")}
+        title={t("resultsPage.title")}
+        summary={t("resultsPage.summary")}
+        currentQuery={searchFlow.query || initialQuery}
+        resultCountLabel={t("resultsPage.resultCount", { count: searchFlow.filteredResults.length })}
+        workspaceEyebrow={t("resultsPage.workspaceEyebrow")}
+        matchScoreLabel={t("resultsPage.matchScore")}
+        reputationLabel={t("resultsPage.reputation")}
+        reasonsLabel={t("resultsPage.reasons")}
+        bestForLabel={t("resultsPage.bestFor")}
+        caveatsLabel={t("resultsPage.caveats")}
+        compareReadyLabel={t("resultsPage.compareReady")}
+        comparedLabel={t("resultsPage.inCompare")}
         emptyHint={t("resultsStates.empty")}
         noMatchHint={t("resultsStates.noMatch")}
         loadingHint={t("resultsStates.loading")}

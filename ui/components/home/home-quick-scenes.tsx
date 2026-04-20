@@ -26,7 +26,7 @@ const iconMap: Record<string, typeof Code2> = {
 
 export function HomeQuickScenes({ scenes, query, onSelect }: HomeQuickScenesProps) {
   return (
-    <div className="flex gap-3 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible">
+    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
       {scenes.map((scene) => {
         const Icon = iconMap[scene.icon ?? ""] ?? FileText
         const active = query === scene.presetQuery
@@ -34,14 +34,13 @@ export function HomeQuickScenes({ scenes, query, onSelect }: HomeQuickScenesProp
           <button
             key={scene.id}
             type="button"
-            role="button"
             aria-label={`选择场景：${scene.label}`}
             data-active={active}
             onClick={() => onSelect(scene.presetQuery)}
-            className="app-chip app-interactive group inline-flex min-w-max items-center gap-2 px-4 py-2.5 text-sm"
+            className="app-chip app-interactive group inline-flex items-center justify-start gap-2.5 rounded-xl px-3.5 py-3 text-left text-sm"
           >
-            <Icon className="h-4 w-4 transition-transform group-hover:scale-110" />
-            <span>{scene.label}</span>
+            <Icon className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:scale-110 group-data-[active=true]:text-primary" />
+            <span className="truncate">{scene.label}</span>
           </button>
         )
       })}
