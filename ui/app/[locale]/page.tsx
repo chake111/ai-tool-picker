@@ -95,6 +95,8 @@ const FAVORITES_STORAGE_KEY = "ai_tool_picker_favorites"
 const ONBOARDING_STORAGE_KEY = "ai_tool_picker_has_seen_onboarding"
 const PREFERENCES_STORAGE_KEY = "ai_tool_picker_preferences"
 const HISTORY_LIMIT = 10
+const HISTORY_PREVIEW_COUNT = 3
+const DEFAULT_HISTORY_PAGE_SIZE = 10
 const FAVORITES_LIMIT = 30
 const MAX_COMPARE_TOOLS = 3
 const AI_KEYWORD_REGEX = /(?:\bai\b|人工智能|大模型|生成式|llm|gpt|copilot|智能)/i
@@ -157,6 +159,8 @@ export default function Home() {
   const [favoritesHydrated, setFavoritesHydrated] = useState(false)
   const [lastSearchedQuery, setLastSearchedQuery] = useState("")
   const [historyCollapsed, setHistoryCollapsed] = useState(true)
+  const [historyPage, setHistoryPage] = useState(1)
+  const [historyPageSize] = useState(DEFAULT_HISTORY_PAGE_SIZE)
   const [favoritesCollapsed, setFavoritesCollapsed] = useState(true)
   const [activeFilters, setActiveFilters] = useState<HomeFilters>({
     free: false,
@@ -180,10 +184,17 @@ export default function Home() {
     () => history.filter((item) => !item.locale || item.locale === currentHistoryLocale),
     [currentHistoryLocale, history],
   )
-  const visibleHistory = useMemo(
-    () => (historyCollapsed ? localizedHistory.slice(0, 3) : localizedHistory),
-    [historyCollapsed, localizedHistory],
+  const historyTotalPages = useMemo(
+    () => Math.max(1, Math.ceil(localizedHistory.length / historyPageSize)),
+    [historyPageSize, localizedHistory.length],
   )
+  const paginatedHistory = useMemo(() => {
+    if (historyCollapsed) {
+      return localizedHistory.slice(0, HISTORY_PREVIEW_COUNT)
+    }
+    const start = (historyPage - 1) * historyPageSize
+    return localizedHistory.slice(start, start + historyPageSize)
+  }, [historyCollapsed, historyPage, historyPageSize, localizedHistory])
   const historySuggestions = useMemo(() => localizedHistory.slice(0, 5).map((item) => item.query), [localizedHistory])
   const hasAnyPreference = useMemo(() => {
     return (
@@ -407,6 +418,17 @@ export default function Home() {
   }, [isLoading, results.length])
 
   useEffect(() => {
+    if (historyCollapsed) {
+      if (historyPage !== 1) {
+        setHistoryPage(1)
+      }
+      return
+    }
+    const nextMaxPage = Math.max(1, Math.ceil(localizedHistory.length / historyPageSize))
+    if (historyPage > nextMaxPage) {
+      setHistoryPage(nextMaxPage)
+    }
+  }, [historyCollapsed, historyPage, historyPageSize, localizedHistory.length])
     setCurrentPage(1)
   }, [activeFilters, query, results])
 
@@ -499,6 +521,7 @@ export default function Home() {
       localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(nextHistory))
       return nextHistory
     })
+    setHistoryPage(1)
   }
 
   const handleSearch = async (inputQuery: string) => {
@@ -623,6 +646,7 @@ export default function Home() {
   const handleClearHistory = () => {
     setHistory([])
     setHistoryCollapsed(true)
+    setHistoryPage(1)
     localStorage.removeItem(HISTORY_STORAGE_KEY)
   }
 
@@ -1072,7 +1096,15 @@ export default function Home() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setHistoryCollapsed((prev) => !prev)}
+                    onClick={() => {
+                      setHistoryCollapsed((prev) => {
+                        const nextCollapsed = !prev
+                        if (!nextCollapsed) {
+                          setHistoryPage(1)
+                        }
+                        return nextCollapsed
+                      })
+                    }}
                     className="text-xs text-muted-foreground transition-colors hover:text-foreground"
                     aria-expanded={!historyCollapsed}
                     aria-controls="history-panel"
@@ -1087,7 +1119,7 @@ export default function Home() {
                     {t("home.history.empty")}
                   </p>
                 ) : (
-                  visibleHistory.map((item) => (
+                  paginatedHistory.map((item) => (
                     <div
                       key={`${item.query}-${item.timestamp}-${item.locale ?? "all"}`}
                       className="flex items-center justify-between gap-2 rounded-md border border-border/70 bg-background px-2.5 py-1.5 text-xs"
@@ -1113,6 +1145,29 @@ export default function Home() {
                       </div>
                     </div>
                   ))
+                )}
+                {!historyCollapsed && localizedHistory.length > 0 && (
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setHistoryPage((prev) => Math.max(1, prev - 1))}
+                      disabled={historyPage <= 1}
+                      className="rounded border border-border/70 px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {t("home.history.pagination.prev")}
+                    </button>
+                    <p className="text-[11px] text-muted-foreground">
+                      {t("home.history.pagination.page", { current: historyPage, total: historyTotalPages })}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setHistoryPage((prev) => Math.min(historyTotalPages, prev + 1))}
+                      disabled={historyPage >= historyTotalPages}
+                      className="rounded border border-border/70 px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {t("home.history.pagination.next")}
+                    </button>
+                  </div>
                 )}
               </div>
             </div>

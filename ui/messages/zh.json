@@ -46,7 +46,12 @@
       "clear": "清空历史",
       "empty": "暂无历史，试试输入需求",
       "reuse": "点击复用",
-      "deleteOne": "删除历史：{query}"
+      "deleteOne": "删除历史：{query}",
+      "pagination": {
+        "prev": "上一页",
+        "next": "下一页",
+        "page": "第 {current} / {total} 页"
+      }
     },
     "quickScenes": {
       "items": {
