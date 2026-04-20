@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
+import { toast } from "@/hooks/use-toast"
 import { HomeCompareEntry } from "@/components/home/home-compare-entry"
 import { HomeHero } from "@/components/home/home-hero"
 import { HomeQuickScenes } from "@/components/home/home-quick-scenes"
@@ -15,6 +16,7 @@ import quickScenesConfig from "@/data/quick-scenes.json"
 
 type QuickSceneConfig = {
   id: string
+  icon?: string
   presetQuery: string
   languageKey: string
   order: number
@@ -59,6 +61,7 @@ export default function HomePage() {
       const exists = prev.some((item) => item.name === tool.name)
       const next = exists ? prev.filter((item) => item.name !== tool.name) : prev.length >= MAX_COMPARE_TOOLS ? prev : [...prev, tool]
       if (!exists && next.length > prev.length) {
+        toast({ description: locale === "zh" ? "已加入对比" : "Added to compare" })
         void trackCompare(tool.name, { source: "home_results" })
       }
       return next
@@ -68,28 +71,30 @@ export default function HomePage() {
   const compareQuery = encodeURIComponent(compareTools.map((tool) => tool.name).join(","))
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pb-28 pt-8 sm:px-6 lg:px-8">
       <HomeHero
-        title={t("home.title")}
-        subtitle={t("home.subtitle")}
-        actions={<HomeQuickScenes scenes={quickScenes} query={searchFlow.query} onSelect={searchFlow.setQuery} />}
-      />
-
-      <SearchInput
-        query={searchFlow.query}
-        onQueryChange={searchFlow.setQuery}
-        onSearch={handleSearch}
-        isLoading={searchFlow.isLoading}
-        placeholder={t("home.searchPlaceholder")}
-        submitLabel={t("home.searchAction")}
-        loadingLabel={t("common.thinking")}
-        helperText={t("home.searchHelper")}
-        historySuggestions={history.suggestions}
-        historyTitle={t("home.history.title")}
-        onSuggestionClick={(suggestion) => {
-          searchFlow.setQuery(suggestion)
-          void handleSearch(suggestion)
-        }}
+        title={t("home.subtitle")}
+        subtitle={t("home.heroHint")}
+        inputArea={
+          <SearchInput
+            query={searchFlow.query}
+            onQueryChange={searchFlow.setQuery}
+            onSearch={handleSearch}
+            isLoading={searchFlow.isLoading}
+            placeholder={t("home.searchPlaceholder")}
+            submitLabel={locale === "zh" ? "推荐" : "Recommend"}
+            loadingLabel={t("common.thinking")}
+            helperText={t("home.searchHelper")}
+            historySuggestions={history.suggestions}
+            historyTitle={t("home.history.title")}
+            onSuggestionClick={(suggestion) => {
+              searchFlow.setQuery(suggestion)
+              void handleSearch(suggestion)
+            }}
+            rotatingPlaceholders={["做 PPT", "写文案", "画图", "写代码"]}
+          />
+        }
+        quickScenes={<HomeQuickScenes scenes={quickScenes} query={searchFlow.query} onSelect={searchFlow.setQuery} />}
       />
 
       {searchFlow.error && <p className="text-sm text-destructive">{searchFlow.error}</p>}
@@ -119,7 +124,13 @@ export default function HomePage() {
         onNextPage={searchFlow.nextPage}
       />
 
-      <HomeCompareEntry locale={locale} selectedCount={compareTools.length} maxCount={MAX_COMPARE_TOOLS} compareQuery={compareQuery} />
+      <HomeCompareEntry
+        locale={locale}
+        selectedCount={compareTools.length}
+        maxCount={MAX_COMPARE_TOOLS}
+        compareQuery={compareQuery}
+        compareTools={compareTools}
+      />
     </main>
   )
 }
