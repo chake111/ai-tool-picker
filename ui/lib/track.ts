@@ -1,4 +1,4 @@
-export type TrackAction = "search" | "favorite" | "click"
+export type TrackAction = "search" | "favorite" | "click" | "exposure"
 export type FavoriteOperation = "add" | "remove"
 
 type TrackEventPayload = {
@@ -9,6 +9,7 @@ type TrackEventPayload = {
   toolId?: string
   keyword?: string
   operation?: FavoriteOperation
+  metadata?: Record<string, unknown>
 }
 
 export type TrackInput =
@@ -24,6 +25,12 @@ export type TrackInput =
   | {
       action: "click"
       toolId: string
+      metadata?: Record<string, unknown>
+    }
+  | {
+      action: "exposure"
+      toolId: string
+      metadata?: Record<string, unknown>
     }
 
 const ANONYMOUS_ID_STORAGE_KEY = "ai_tool_picker_anonymous_id"
@@ -54,6 +61,7 @@ export async function track(payload: TrackInput) {
     toolId: "toolId" in payload ? payload.toolId : undefined,
     keyword: payload.action === "search" ? payload.keyword : undefined,
     operation: payload.action === "favorite" ? payload.operation : undefined,
+    metadata: payload.action === "exposure" || payload.action === "click" ? payload.metadata : undefined,
     anonymousId: getAnonymousId(),
     page: typeof window !== "undefined" ? window.location.pathname : "/",
     timestamp: Date.now(),

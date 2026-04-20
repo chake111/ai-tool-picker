@@ -1,19 +1,21 @@
 import { getServerSession } from "next-auth"
 import { NextResponse } from "next/server"
+import type { Prisma } from "@prisma/client"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
 type TrackPayload = {
-  event: "search" | "favorite" | "click"
+  event: "search" | "favorite" | "click" | "exposure"
   anonymousId: string
   timestamp: number
   page?: string
   toolId?: string
   keyword?: string
   operation?: "add" | "remove"
+  metadata?: Record<string, unknown>
 }
 
-const VALID_EVENTS = new Set<TrackPayload["event"]>(["search", "favorite", "click"])
+const VALID_EVENTS = new Set<TrackPayload["event"]>(["search", "favorite", "click", "exposure"])
 
 function isValidPayload(payload: unknown): payload is TrackPayload {
   if (!payload || typeof payload !== "object") return false
@@ -33,6 +35,9 @@ function isValidPayload(payload: unknown): payload is TrackPayload {
     )
   }
   if (candidate.event === "click") {
+    return typeof candidate.toolId === "string" && candidate.toolId.trim().length > 0
+  }
+  if (candidate.event === "exposure") {
     return typeof candidate.toolId === "string" && candidate.toolId.trim().length > 0
   }
   return false
@@ -60,7 +65,12 @@ export async function POST(request: Request) {
     action: payload.event,
     toolId: payload.toolId ?? null,
     keyword: payload.keyword ?? null,
-    metadata: payload.event === "favorite" ? { operation: payload.operation } : undefined,
+    metadata:
+      payload.event === "favorite"
+        ? { operation: payload.operation }
+        : payload.event === "exposure" || payload.event === "click"
+          ? (payload.metadata as Prisma.InputJsonValue | undefined)
+          : undefined,
     userId,
   }
 
