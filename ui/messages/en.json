@@ -194,5 +194,13 @@
     "requestFailed": "Request failed, please try again later",
     "recommendationFailed": "Recommendation failed, please try again",
     "fallback": "Something went wrong. Please try again."
+  },
+  "resultsToolbar": {
+    "clear": "Clear conditions",
+    "visited": "Visited",
+    "sort": {
+      "confidence": "By confidence",
+      "name": "By name"
+    }
   }
 }

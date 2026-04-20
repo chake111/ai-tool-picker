@@ -2,35 +2,40 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { HistoryPagination } from "@/components/history/history-pagination"
-import { HomeResultsFilters } from "@/components/home/home-results-filters"
-import { Heart, Star } from "lucide-react"
+import { ResultsToolbar } from "@/components/results/results-toolbar"
+import { Check, Heart, Star } from "lucide-react"
+import type { DisplayItem } from "@/hooks/use-search-flow"
 
-type DisplayItem = {
-  name: string
-  desc: string
-  reason: string
-  link: string
-  tags: string[]
-  priceRange: string
-  platform: string
-  languageSupport: string
-}
+type ActionFeedbackState = "idle" | "done"
 
-type ResultsListProps<TOption extends string> = {
+type ResultsListProps<TFilter extends string, TSort extends string> = {
   title: string
   emptyHint: string
   isLoading: boolean
   results: DisplayItem[]
   pagedResults: DisplayItem[]
   compareTools: DisplayItem[]
-  filters: TOption
-  filterOptions: readonly TOption[]
-  onFilterSelect: (option: TOption) => void
-  getFilterLabel: (option: TOption) => string
+  favorites: string[]
+  filters: TFilter
+  filterOptions: readonly TFilter[]
+  onFilterSelect: (option: TFilter) => void
+  getFilterLabel: (option: TFilter) => string
+  sortBy: TSort
+  sortOptions: readonly TSort[]
+  onSortSelect: (option: TSort) => void
+  getSortLabel: (option: TSort) => string
+  clearConditionsLabel: string
+  onClearConditions: () => void
   onToggleCompare: (tool: DisplayItem) => void
+  onToggleFavorite: (tool: DisplayItem) => void
+  onVisitWebsite: (tool: DisplayItem) => void
+  getActionFeedbackState: (toolName: string, action: "favorite" | "compare" | "visit") => ActionFeedbackState
   addLabel: string
   addedLabel: string
+  favoriteLabel: string
+  favoritedLabel: string
   visitWebsiteLabel: string
+  visitedWebsiteLabel: string
   showPagination: boolean
   currentPage: number
   totalPages: number
@@ -43,21 +48,34 @@ type ResultsListProps<TOption extends string> = {
 
 const ratingFromName = (name: string) => (4.3 + ((name.length % 6) * 0.1)).toFixed(1)
 
-export function ResultsList<TOption extends string>({
+export function ResultsList<TFilter extends string, TSort extends string>({
   title,
   emptyHint,
   isLoading,
   results,
   pagedResults,
   compareTools,
+  favorites,
   filters,
   filterOptions,
   onFilterSelect,
   getFilterLabel,
+  sortBy,
+  sortOptions,
+  onSortSelect,
+  getSortLabel,
+  clearConditionsLabel,
+  onClearConditions,
   onToggleCompare,
+  onToggleFavorite,
+  onVisitWebsite,
+  getActionFeedbackState,
   addLabel,
   addedLabel,
+  favoriteLabel,
+  favoritedLabel,
   visitWebsiteLabel,
+  visitedWebsiteLabel,
   showPagination,
   currentPage,
   totalPages,
@@ -66,12 +84,23 @@ export function ResultsList<TOption extends string>({
   nextLabel,
   onPreviousPage,
   onNextPage,
-}: ResultsListProps<TOption>) {
+}: ResultsListProps<TFilter, TSort>) {
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold">{title}</h2>
-        <HomeResultsFilters options={filterOptions} activeOption={filters} getLabel={getFilterLabel} onSelect={onFilterSelect} />
+        <ResultsToolbar
+          filterOptions={filterOptions}
+          activeFilter={filters}
+          onFilterChange={onFilterSelect}
+          getFilterLabel={getFilterLabel}
+          sortOptions={sortOptions}
+          activeSort={sortBy}
+          onSortChange={onSortSelect}
+          getSortLabel={getSortLabel}
+          clearLabel={clearConditionsLabel}
+          onClear={onClearConditions}
+        />
       </div>
 
       {results.length === 0 && !isLoading ? (
@@ -81,7 +110,11 @@ export function ResultsList<TOption extends string>({
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             {pagedResults.map((item) => {
               const selected = compareTools.some((tool) => tool.name === item.name)
+              const favorited = favorites.includes(item.name)
               const logo = item.name.trim().slice(0, 1)
+              const favoriteFeedback = getActionFeedbackState(item.name, "favorite")
+              const compareFeedback = getActionFeedbackState(item.name, "compare")
+              const visitFeedback = getActionFeedbackState(item.name, "visit")
               return (
                 <Card
                   key={item.name}
@@ -96,13 +129,15 @@ export function ResultsList<TOption extends string>({
                           <p className="mt-1 text-sm text-muted-foreground">{item.desc}</p>
                         </div>
                       </div>
-                      <button
+                      <Button
                         type="button"
+                        size="icon"
+                        variant={favorited ? "default" : "outline"}
                         aria-label={`收藏 ${item.name}`}
-                        className="rounded-lg border border-border p-2 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary/70"
+                        onClick={() => onToggleFavorite(item)}
                       >
-                        <Heart className="h-4 w-4" />
-                      </button>
+                        {favoriteFeedback === "done" ? <Check className="h-4 w-4" /> : <Heart className="h-4 w-4" />}
+                      </Button>
                     </div>
 
                     <p className="text-sm text-foreground/85">{item.reason}</p>
@@ -121,13 +156,14 @@ export function ResultsList<TOption extends string>({
                         <span className="font-medium text-foreground">{ratingFromName(item.name)}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button asChild size="sm" variant="outline" className="rounded-xl">
-                          <a href={item.link} target="_blank" rel="noopener noreferrer">
-                            {visitWebsiteLabel}
-                          </a>
+                        <Button size="sm" variant="outline" className="rounded-xl" onClick={() => onVisitWebsite(item)}>
+                          {visitFeedback === "done" ? visitedWebsiteLabel : visitWebsiteLabel}
                         </Button>
                         <Button size="sm" variant={selected ? "default" : "outline"} className="rounded-xl" onClick={() => onToggleCompare(item)}>
-                          {selected ? addedLabel : addLabel}
+                          {compareFeedback === "done" ? addedLabel : compareLabel(selected, addLabel, addedLabel)}
+                        </Button>
+                        <Button size="sm" variant={favorited ? "default" : "outline"} className="rounded-xl" onClick={() => onToggleFavorite(item)}>
+                          {favoriteFeedback === "done" ? favoritedLabel : favorited ? favoritedLabel : favoriteLabel}
                         </Button>
                       </div>
                     </div>
@@ -152,4 +188,8 @@ export function ResultsList<TOption extends string>({
       )}
     </section>
   )
+}
+
+function compareLabel(selected: boolean, addLabel: string, addedLabel: string) {
+  return selected ? addedLabel : addLabel
 }

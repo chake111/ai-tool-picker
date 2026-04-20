@@ -194,5 +194,13 @@
     "requestFailed": "请求失败，请稍后再试",
     "recommendationFailed": "推荐生成失败，请稍后重试",
     "fallback": "发生错误，请稍后重试。"
+  },
+  "resultsToolbar": {
+    "clear": "清空条件",
+    "visited": "已访问",
+    "sort": {
+      "confidence": "按置信度",
+      "name": "按名称"
+    }
   }
 }
