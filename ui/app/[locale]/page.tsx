@@ -60,7 +60,7 @@ export default function HomePage() {
             onSearch={handleSearch}
             isLoading={searchFlow.isLoading}
             placeholder={t("home.searchPlaceholder")}
-            submitLabel={locale === "zh" ? "开始推荐" : "Get Recommendations"}
+            submitLabel={locale === "zh" ? "开始推荐" : "Get recommendations"}
             loadingLabel={t("common.thinking")}
             helperText={t("home.searchHelper")}
             historySuggestions={history.suggestions}
@@ -69,6 +69,7 @@ export default function HomePage() {
               searchFlow.setQuery(suggestion)
               void handleSearch(suggestion)
             }}
+            rotatingPrefix={locale === "zh" ? "例如：" : "Example: "}
             rotatingPlaceholders={[
               locale === "zh" ? "我需要做一份融资路演 PPT" : "I need a fundraising pitch deck",
               locale === "zh" ? "我要写小红书产品种草文案" : "I need social media product copy",
@@ -85,7 +86,7 @@ export default function HomePage() {
         quickScenes={<HomeQuickScenes scenes={quickScenes} query={searchFlow.query} onSelect={searchFlow.setQuery} />}
       />
 
-      {searchFlow.error && <p className="text-sm text-destructive">{searchFlow.error}</p>}
+      {searchFlow.error && <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{searchFlow.error}</p>}
 
       <HomeResultsPreview title={t("home.resultsTitle")} subtitle={t("home.resultsPreviewSubtitle")} emptyHint={t("home.emptyHint")} />
     </main>

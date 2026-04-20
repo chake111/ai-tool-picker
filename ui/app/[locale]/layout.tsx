@@ -52,15 +52,15 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
     <IntlProvider locale={locale} messages={messages}>
       <AuthSessionProvider>
         <div className="min-h-screen bg-background">
-          <header className="sticky top-0 z-50 border-b border-border/70 bg-background/90 backdrop-blur-xl supports-[backdrop-filter]:bg-background/80">
-            <nav className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+          <header className="sticky top-0 z-50 border-b border-border/70 bg-background/85 backdrop-blur-xl supports-[backdrop-filter]:bg-background/80">
+            <nav className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-2.5 sm:px-6 lg:px-8">
               <Link href={`/${locale}`} className="inline-flex items-center gap-3 rounded-lg px-1 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary/70">
                 <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground shadow-sm">
                   <Sparkles className="h-4 w-4" />
                 </span>
                 <div>
                   <p className="text-sm font-semibold text-foreground sm:text-base">AI Tool Picker</p>
-                  <p className="text-xs text-muted-foreground">{locale === 'zh' ? '更快找到适合你的 AI 工具' : 'Pick the right AI tool faster'}</p>
+                  <p className="text-xs text-muted-foreground">{locale === 'zh' ? '更快完成 AI 工具初选' : 'Shortlist the right AI tools faster'}</p>
                 </div>
               </Link>
 
@@ -71,7 +71,7 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
                     <Link
                       key={item.href}
                       href={item.href}
-                      className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary/70"
+                      className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary/70"
                     >
                       <Icon className="h-4 w-4" aria-hidden="true" />
                       <span className="hidden sm:inline">{item.label}</span>

@@ -179,6 +179,9 @@ export default function ResultsPage() {
         reasonsLabel={t("resultsPage.reasons")}
         bestForLabel={t("resultsPage.bestFor")}
         caveatsLabel={t("resultsPage.caveats")}
+        capabilityLabel={t("resultsPage.capabilities")}
+        nextActionLabel={t("resultsPage.nextAction")}
+        detailsLabel={t("details.view")}
         compareReadyLabel={t("resultsPage.compareReady")}
         comparedLabel={t("resultsPage.inCompare")}
         emptyHint={t("resultsStates.empty")}

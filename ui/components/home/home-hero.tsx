@@ -22,7 +22,7 @@ export function HomeHero({ title, subtitle, trustNote, inputArea, quickScenes, s
   return (
     <section className="app-panel relative overflow-hidden px-6 py-7 sm:px-8 sm:py-9">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--primary)_14%,transparent)_0%,transparent_46%)]" />
-      <div className="relative space-y-7">
+      <div className="relative space-y-8">
         <div className="space-y-4">
           <p className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-medium tracking-wide text-muted-foreground">
             AI Tool Decision Assistant
@@ -31,7 +31,10 @@ export function HomeHero({ title, subtitle, trustNote, inputArea, quickScenes, s
             <h1 className="max-w-4xl text-[length:var(--font-title-xl)] font-semibold leading-[var(--line-height-title)] tracking-tight text-foreground">{title}</h1>
             <p className="max-w-3xl text-[length:var(--font-body-md)] text-muted-foreground">{subtitle}</p>
           </div>
-          <p className="text-sm text-muted-foreground">{trustNote}</p>
+          <div className="app-panel-subtle flex flex-wrap items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm text-muted-foreground">
+            <span>{trustNote}</span>
+            <span className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-[0.12em]">Linear / Vercel inspired workflow</span>
+          </div>
         </div>
 
         {inputArea}
