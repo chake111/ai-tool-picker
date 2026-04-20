@@ -603,12 +603,18 @@ export default function Home() {
 
         {/* 标题区域 */}
         {results.length === 0 && (
-          <div className="text-center">
-            <h1 className="text-4xl md:text-5xl font-bold text-foreground tracking-tight text-balance">
+          <div className="w-full max-w-2xl text-center">
+            <div className="mx-auto mb-4 inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+              AI Tool Picker
+            </div>
+            <h1 className="mx-auto max-w-2xl text-3xl font-extrabold leading-tight text-foreground tracking-tight text-balance sm:text-4xl md:text-5xl md:leading-[1.1]">
               {t("home.title")}
             </h1>
-            <p className="mt-4 text-lg text-muted-foreground">
+            <p className="mx-auto mt-4 max-w-2xl text-base font-medium leading-relaxed text-muted-foreground sm:text-lg">
               {t("home.subtitle")}
+            </p>
+            <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground/85 sm:text-[0.95rem]">
+              {t("home.heroHint")}
             </p>
           </div>
         )}
@@ -641,6 +647,11 @@ export default function Home() {
             submitLabel={t("home.searchAction")}
             loadingLabel={t("common.thinking")}
           />
+          {results.length === 0 && (
+            <p className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs leading-relaxed text-muted-foreground sm:text-sm">
+              {t("home.examples")}
+            </p>
+          )}
 
           {history.length > 0 && (
             <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
