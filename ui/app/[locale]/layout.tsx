@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { hasLocale } from 'next-intl'
 import { getMessages, getTranslations, setRequestLocale } from 'next-intl/server'
-import { Heart, Home, Settings2, Sparkles } from 'lucide-react'
+import { Heart, Settings2, Sparkles } from 'lucide-react'
 import { AuthSessionProvider } from '@/components/auth-session-provider'
 import { IntlProvider } from '@/components/intl-provider'
 import { Toaster } from '@/components/ui/toaster'
@@ -43,7 +43,6 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
 
   const messages = await getMessages()
   const navItems = [
-    { href: `/${locale}`, label: locale === 'zh' ? '首页' : 'Home', icon: Home },
     { href: `/${locale}/favorites`, label: locale === 'zh' ? '收藏' : 'Favorites', icon: Heart },
     { href: `/${locale}/preferences`, label: locale === 'zh' ? '偏好' : 'Preferences', icon: Settings2 },
   ]
@@ -58,10 +57,7 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
                 <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground shadow-sm">
                   <Sparkles className="h-4 w-4" />
                 </span>
-                <div>
-                  <p className="text-sm font-semibold text-foreground sm:text-base">AI Tool Picker</p>
-                  <p className="text-xs text-muted-foreground">{locale === 'zh' ? '更快完成 AI 工具初选' : 'Shortlist the right AI tools faster'}</p>
-                </div>
+                <p className="text-sm font-semibold text-foreground sm:text-base">AI Tool Picker</p>
               </Link>
 
               <div className="flex items-center gap-1 sm:gap-2">

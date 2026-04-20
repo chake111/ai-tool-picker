@@ -5,7 +5,6 @@ import { useLocale, useTranslations } from "next-intl"
 import { useRouter } from "next/navigation"
 import { HomeHero } from "@/components/home/home-hero"
 import { HomeQuickScenes } from "@/components/home/home-quick-scenes"
-import { HomeResultsPreview } from "@/components/home/home-results-preview"
 import { SearchInput } from "@/components/search-input"
 import { useSearchFlow } from "@/hooks/use-search-flow"
 import { useHistory } from "@/hooks/use-history"
@@ -39,6 +38,7 @@ export default function HomePage() {
     () =>
       [...(quickScenesConfig as QuickSceneConfig[])]
         .sort((a, b) => a.order - b.order)
+        .slice(0, 4)
         .map((scene) => ({ ...scene, label: t(scene.languageKey) })),
     [t],
   )
@@ -78,17 +78,10 @@ export default function HomePage() {
           />
         }
         scenarioTitle={t("home.quickScenesTitle")}
-        stats={[
-          { label: t("home.stats.countLabel"), value: t("home.stats.countValue") },
-          { label: t("home.stats.timeLabel"), value: t("home.stats.timeValue") },
-          { label: t("home.stats.reasonLabel"), value: t("home.stats.reasonValue") },
-        ]}
         quickScenes={<HomeQuickScenes scenes={quickScenes} query={searchFlow.query} onSelect={searchFlow.setQuery} />}
       />
 
       {searchFlow.error && <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{searchFlow.error}</p>}
-
-      <HomeResultsPreview title={t("home.resultsTitle")} subtitle={t("home.resultsPreviewSubtitle")} emptyHint={t("home.emptyHint")} />
     </main>
   )
 }
