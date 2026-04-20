@@ -18,6 +18,7 @@ type RecommendRequest = {
   query: string
   locale?: string
   debug?: boolean
+  ranker?: "v1" | "v2"
   localBehavior?: {
     history?: Array<{ query?: string; timestamp?: number } | string>
     favorites?: Array<{ toolId?: string; name?: string }>
@@ -26,6 +27,7 @@ type RecommendRequest = {
 }
 
 type SupportedLocale = "zh" | "en"
+type RankerVersion = "v1" | "v2"
 
 type ZhipuChatResponse = {
   choices?: Array<{
@@ -248,6 +250,12 @@ const EN_TO_ZH_TAG_MAP: Record<string, string> = {
   paid: "付费为主",
   "general use": "通用场景",
 }
+const SCENARIO_KEYWORD_MAP = [
+  { scenario: "coding", keywords: ["code", "coding", "编程", "写代码", "开发", "test", "测试"] },
+  { scenario: "presentation", keywords: ["ppt", "slides", "deck", "演示", "汇报", "路演"] },
+  { scenario: "design", keywords: ["design", "image", "图像", "绘图", "插画", "海报"] },
+  { scenario: "writing", keywords: ["writing", "write", "文案", "写作", "文章", "总结"] },
+] as const
 
 type ScoredRecommendation = {
   item: RecommendItem
@@ -255,6 +263,44 @@ type ScoredRecommendation = {
   userScore: number
   businessScore: number
   finalScore: number
+}
+
+function parseRanker(rawRanker: unknown): RankerVersion {
+  return rawRanker === "v2" ? "v2" : "v1"
+}
+
+function inferScenario(query: string): string {
+  const normalized = query.toLowerCase()
+  const matched = SCENARIO_KEYWORD_MAP.find((entry) => entry.keywords.some((keyword) => normalized.includes(keyword)))
+  return matched?.scenario ?? "general"
+}
+
+function applyRankerExperimentBoost(
+  scored: ScoredRecommendation[],
+  ranker: RankerVersion,
+  scenario: string,
+): ScoredRecommendation[] {
+  if (ranker === "v1") return scored
+  return scored
+    .map((entry) => {
+      const text = [entry.item.name, entry.item.desc, ...(entry.item.tags ?? [])].join(" ").toLowerCase()
+      const scenarioBoost =
+        scenario === "coding" && /(copilot|code|开发者|developer)/i.test(text)
+          ? 0.06
+          : scenario === "presentation" && /(gamma|tome|beautiful\.ai|演示|办公用户)/i.test(text)
+            ? 0.06
+            : scenario === "design" && /(midjourney|图像|设计师|image|design)/i.test(text)
+              ? 0.06
+              : scenario === "writing" && /(chatgpt|notion ai|写作|content|文案)/i.test(text)
+                ? 0.06
+                : 0
+      const diversityBoost = entry.item.tags.length >= 2 ? 0.02 : 0
+      return {
+        ...entry,
+        finalScore: entry.finalScore + scenarioBoost + diversityBoost,
+      }
+    })
+    .sort((a, b) => b.finalScore - a.finalScore)
 }
 
 function resolveToolLink(toolName: string): string {
@@ -817,6 +863,8 @@ function normalizeRecommendations(
   locale: SupportedLocale,
   semanticScoreByTool: Map<string, number> = new Map(),
   userScoreByTool: Map<string, number> = new Map(),
+  ranker: RankerVersion = "v1",
+  scenario: string = "general",
 ): ScoredRecommendation[] {
   const cleaned = recommendations
     .map((item) => ({
@@ -854,8 +902,9 @@ function normalizeRecommendations(
   }
 
   const scored = buildRecommendationScores(allItems, semanticScoreByTool, userScoreByTool).sort((a, b) => b.finalScore - a.finalScore)
-  const diversified = applyDiversityConstraint(scored, DIVERSITY_TAG_LIMIT)
-  return maybeInjectExplorationCandidate(diversified, scored).slice(0, 3)
+  const rankerAdjusted = applyRankerExperimentBoost(scored, ranker, scenario)
+  const diversified = applyDiversityConstraint(rankerAdjusted, DIVERSITY_TAG_LIMIT)
+  return maybeInjectExplorationCandidate(diversified, rankerAdjusted).slice(0, 3)
 }
 
 function toResponseItems(scored: ScoredRecommendation[], debug: boolean): RecommendItem[] {
@@ -994,10 +1043,18 @@ export async function POST(request: Request) {
   const query = body?.query?.trim()
   const locale = parseLocale(body?.locale)
   const debug = body?.debug === true
+  const ranker = parseRanker(body?.ranker)
   if (!query) {
     return NextResponse.json({ error: "Invalid query" }, { status: 400 })
   }
   const safeQuery = query.replace(/[\u0000-\u001F\u007F]/g, " ").slice(0, 1000)
+  const scenario = inferScenario(safeQuery)
+  const requestId = `rec_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+  const responseHeaders = {
+    "x-recommend-ranker": ranker,
+    "x-recommend-scenario": scenario,
+    "x-recommend-request-id": requestId,
+  }
 
   try {
     const session = await getServerSession(authOptions)
@@ -1020,9 +1077,12 @@ export async function POST(request: Request) {
           locale,
             semanticScoreByTool,
             userScoreByTool,
+            ranker,
+            scenario,
           ).slice(0, 3),
           debug,
         ),
+        { headers: responseHeaders },
       )
     }
 
@@ -1055,18 +1115,29 @@ export async function POST(request: Request) {
             locale,
               semanticScoreByTool,
               userScoreByTool,
+              ranker,
+              scenario,
             ).slice(0, 3),
             debug,
           ),
+          { headers: responseHeaders },
         )
       }
     }
 
     const refined = await refineTopToolsWithLLM(safeQuery, topTools, locale)
     if (refined) {
-      const normalized = normalizeRecommendations(refined, safeQuery, locale, semanticScoreByTool, userScoreByTool)
+      const normalized = normalizeRecommendations(
+        refined,
+        safeQuery,
+        locale,
+        semanticScoreByTool,
+        userScoreByTool,
+        ranker,
+        scenario,
+      )
       if (normalized.length > 0) {
-        return NextResponse.json(toResponseItems(normalized.slice(0, 3), debug))
+        return NextResponse.json(toResponseItems(normalized.slice(0, 3), debug), { headers: responseHeaders })
       }
     }
 
@@ -1078,9 +1149,12 @@ export async function POST(request: Request) {
         locale,
           semanticScoreByTool,
           userScoreByTool,
+          ranker,
+          scenario,
         ).slice(0, 3),
         debug,
       ),
+      { headers: responseHeaders },
     )
   } catch (error) {
     console.error("Embedding recommendation failed, fallback to existing logic:", error)
@@ -1091,9 +1165,10 @@ export async function POST(request: Request) {
     if (!apiKey) {
       return NextResponse.json(
         toResponseItems(
-          normalizeRecommendations(buildFallbackRecommendations(safeQuery, locale), safeQuery, locale).slice(0, 3),
+          normalizeRecommendations(buildFallbackRecommendations(safeQuery, locale), safeQuery, locale, new Map(), new Map(), ranker, scenario).slice(0, 3),
           debug,
         ),
+        { headers: responseHeaders },
       )
     }
 
@@ -1130,9 +1205,18 @@ export async function POST(request: Request) {
       console.error(`Zhipu API request failed: ${zhipuResponse.status} ${errorText}`)
       return NextResponse.json(
         toResponseItems(
-          normalizeRecommendations(buildFallbackRecommendations(safeQuery, locale), safeQuery, locale).slice(0, 3),
+          normalizeRecommendations(
+            buildFallbackRecommendations(safeQuery, locale),
+            safeQuery,
+            locale,
+            new Map(),
+            new Map(),
+            ranker,
+            scenario,
+          ).slice(0, 3),
           debug,
         ),
+        { headers: responseHeaders },
       )
     }
 
@@ -1143,7 +1227,15 @@ export async function POST(request: Request) {
       throw new Error("Empty model response")
     }
 
-    let recommendations = normalizeRecommendations(extractJsonArrayFromContent(content), safeQuery, locale)
+    let recommendations = normalizeRecommendations(
+      extractJsonArrayFromContent(content),
+      safeQuery,
+      locale,
+      new Map(),
+      new Map(),
+      ranker,
+      scenario,
+    )
     if (!isRecommendationLocaleMatch(recommendations.map((item) => item.item), locale)) {
       const retryResponse = await fetch(ZHIPU_API_URL, {
         method: "POST",
@@ -1174,19 +1266,28 @@ export async function POST(request: Request) {
         const retryCompletion = (await retryResponse.json()) as ZhipuChatResponse
         const retryContent = retryCompletion.choices?.[0]?.message?.content?.trim()
         if (retryContent) {
-          recommendations = normalizeRecommendations(extractJsonArrayFromContent(retryContent), safeQuery, locale)
+          recommendations = normalizeRecommendations(
+            extractJsonArrayFromContent(retryContent),
+            safeQuery,
+            locale,
+            new Map(),
+            new Map(),
+            ranker,
+            scenario,
+          )
         }
       }
     }
 
-    return NextResponse.json(toResponseItems(recommendations, debug))
+    return NextResponse.json(toResponseItems(recommendations, debug), { headers: responseHeaders })
   } catch (error) {
     console.error("Error in /api/recommend fallback:", error)
     return NextResponse.json(
       toResponseItems(
-        normalizeRecommendations(buildFallbackRecommendations(safeQuery, locale), safeQuery, locale).slice(0, 3),
+        normalizeRecommendations(buildFallbackRecommendations(safeQuery, locale), safeQuery, locale, new Map(), new Map(), ranker, scenario).slice(0, 3),
         debug,
       ),
+      { headers: responseHeaders },
     )
   }
 }

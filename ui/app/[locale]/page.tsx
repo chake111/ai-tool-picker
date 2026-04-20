@@ -192,6 +192,12 @@ export default function Home() {
     chinese: false,
   })
   const [favoriteAnimatingTool, setFavoriteAnimatingTool] = useState("")
+  const [recommendMeta, setRecommendMeta] = useState<{
+    requestId: string
+    ranker: "v1" | "v2"
+    scenario: string
+    query: string
+  } | null>(null)
   const resultsTitleRef = useRef<HTMLDivElement>(null)
   const lastExposureSignatureRef = useRef("")
   const resultRankMap = useMemo(() => {
@@ -335,15 +341,20 @@ export default function Home() {
 
     results.forEach((item, index) => {
       void track({
-        action: "exposure",
+        action: "impression",
         toolId: item.name,
         metadata: {
           rank: index + 1,
           source: "recommendation_list",
+          locale,
+          query: recommendMeta?.query ?? lastSearchedQuery,
+          scenario: recommendMeta?.scenario ?? "general",
+          ranker: recommendMeta?.ranker ?? "v1",
+          requestId: recommendMeta?.requestId ?? "unknown",
         },
       }).catch(() => {})
     })
-  }, [isLoading, results])
+  }, [isLoading, lastSearchedQuery, locale, recommendMeta, results])
 
   const saveHistory = (inputQuery: string) => {
     const normalizedQuery = inputQuery.trim()
@@ -389,6 +400,7 @@ export default function Home() {
       const requestBody = {
         query: normalizedQuery,
         locale: locale === "zh" ? "zh" : "en",
+        ranker: Math.random() < 0.5 ? "v1" : "v2",
         ...(!isLoggedIn
           ? {
               localBehavior: {
@@ -411,6 +423,12 @@ export default function Home() {
       }
 
       const data = (await response.json()) as RecommendItem[]
+      setRecommendMeta({
+        query: normalizedQuery,
+        ranker: (response.headers.get("x-recommend-ranker") as "v1" | "v2") ?? "v1",
+        scenario: response.headers.get("x-recommend-scenario") ?? "general",
+        requestId: response.headers.get("x-recommend-request-id") ?? `rec_client_${Date.now()}`,
+      })
       setResults(data)
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : ""
@@ -463,6 +481,14 @@ export default function Home() {
       action: "favorite",
       toolId: item.name,
       operation: action,
+      metadata: {
+        source: "recommendation_list",
+        locale,
+        query: recommendMeta?.query ?? lastSearchedQuery,
+        scenario: recommendMeta?.scenario ?? "general",
+        ranker: recommendMeta?.ranker ?? "v1",
+        requestId: recommendMeta?.requestId ?? "unknown",
+      },
     }).catch(() => {})
 
     setFavorites((prev) => {
@@ -757,6 +783,11 @@ export default function Home() {
                                 metadata: {
                                   source: "favorites_panel",
                                   rank: (resultRankMap.get(favorite.name) ?? -1) + 1,
+                                  locale,
+                                  query: recommendMeta?.query ?? lastSearchedQuery,
+                                  scenario: recommendMeta?.scenario ?? "general",
+                                  ranker: recommendMeta?.ranker ?? "v1",
+                                  requestId: recommendMeta?.requestId ?? "unknown",
                                 },
                               }).catch(() => {})
                             }}
@@ -914,6 +945,11 @@ export default function Home() {
                             metadata: {
                               source: "recommendation_list",
                               rank: (resultRankMap.get(item.name) ?? 0) + 1,
+                              locale,
+                              query: recommendMeta?.query ?? lastSearchedQuery,
+                              scenario: recommendMeta?.scenario ?? "general",
+                              ranker: recommendMeta?.ranker ?? "v1",
+                              requestId: recommendMeta?.requestId ?? "unknown",
                             },
                           }).catch(() => {})
                         }}

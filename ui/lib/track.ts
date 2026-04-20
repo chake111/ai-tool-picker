@@ -1,4 +1,4 @@
-export type TrackAction = "search" | "favorite" | "click" | "exposure"
+export type TrackAction = "search" | "favorite" | "click" | "exposure" | "impression"
 export type FavoriteOperation = "add" | "remove"
 
 type TrackEventPayload = {
@@ -21,6 +21,7 @@ export type TrackInput =
       action: "favorite"
       toolId: string
       operation: FavoriteOperation
+      metadata?: Record<string, unknown>
     }
   | {
       action: "click"
@@ -29,6 +30,11 @@ export type TrackInput =
     }
   | {
       action: "exposure"
+      toolId: string
+      metadata?: Record<string, unknown>
+    }
+  | {
+      action: "impression"
       toolId: string
       metadata?: Record<string, unknown>
     }
@@ -61,7 +67,13 @@ export async function track(payload: TrackInput) {
     toolId: "toolId" in payload ? payload.toolId : undefined,
     keyword: payload.action === "search" ? payload.keyword : undefined,
     operation: payload.action === "favorite" ? payload.operation : undefined,
-    metadata: payload.action === "exposure" || payload.action === "click" ? payload.metadata : undefined,
+    metadata:
+      payload.action === "exposure" ||
+      payload.action === "impression" ||
+      payload.action === "click" ||
+      payload.action === "favorite"
+        ? payload.metadata
+        : undefined,
     anonymousId: getAnonymousId(),
     page: typeof window !== "undefined" ? window.location.pathname : "/",
     timestamp: Date.now(),
