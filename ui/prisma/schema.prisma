@@ -11,6 +11,7 @@ enum UserEventAction {
   search
   favorite
   click
+  exposure
 }
 
 enum ToolStatus {

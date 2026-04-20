@@ -17,6 +17,7 @@ import { type ToolDatasetItem, getActiveTools } from "@/lib/tools"
 type RecommendRequest = {
   query: string
   locale?: string
+  debug?: boolean
   localBehavior?: {
     history?: Array<{ query?: string; timestamp?: number } | string>
     favorites?: Array<{ toolId?: string; name?: string }>
@@ -62,7 +63,16 @@ const USER_EVENTS_FETCH_LIMIT = 50
 const DECAY_HIGH_WEIGHT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
 const DECAY_LONG_TAIL_MS = 30 * 24 * 60 * 60 * 1000
 const MIN_BEHAVIOR_EVENTS_FOR_PERSONALIZATION = 3
+const EXPLORATION_SLOT_INDEX = 2
+const EXPLORATION_RATE = 0.15
+const DIVERSITY_TAG_LIMIT = 2
 const PRIORITY_TOOLS = ["chatgpt", "notion ai", "gamma", "tome", "beautiful.ai"] as const
+const PRIORITY_TOOL_BONUS = 0.08
+const SCORE_WEIGHT = {
+  semantic: 0.55,
+  user: 0.3,
+  business: 0.15,
+} as const
 const TAG_PRIORITY = [
   "新手友好",
   "免费可用",
@@ -237,6 +247,14 @@ const EN_TO_ZH_TAG_MAP: Record<string, string> = {
   "english-first": "英文环境",
   paid: "付费为主",
   "general use": "通用场景",
+}
+
+type ScoredRecommendation = {
+  item: RecommendItem
+  semanticScore: number
+  userScore: number
+  businessScore: number
+  finalScore: number
 }
 
 function resolveToolLink(toolName: string): string {
@@ -726,7 +744,80 @@ function buildFallbackRecommendations(query: string, locale: SupportedLocale): R
   return localizeFallbackRecommendations(locale).map((item) => withQueryContext(item, query, locale))
 }
 
-function normalizeRecommendations(recommendations: RecommendItem[], query: string, locale: SupportedLocale): RecommendItem[] {
+function getBusinessScore(item: RecommendItem): number {
+  const normalizedTags = normalizeTags(item.tags, item.name)
+  let score = 0
+  if (normalizedTags.includes("新手友好")) score += 0.45
+  if (normalizedTags.includes("免费可用")) score += 0.35
+  if (normalizedTags.includes("中文友好")) score += 0.2
+  if (PRIORITY_TOOLS.includes(item.name.toLowerCase() as (typeof PRIORITY_TOOLS)[number])) {
+    score += PRIORITY_TOOL_BONUS
+  }
+  return Math.min(1, score)
+}
+
+function buildRecommendationScores(
+  recommendations: RecommendItem[],
+  semanticScoreByTool: Map<string, number>,
+  userScoreByTool: Map<string, number>,
+): ScoredRecommendation[] {
+  return recommendations.map((item) => {
+    const key = item.name.toLowerCase()
+    const semanticScore = semanticScoreByTool.get(key) ?? 0
+    const userScore = userScoreByTool.get(key) ?? 0
+    const businessScore = getBusinessScore(item)
+    const finalScore =
+      semanticScore * SCORE_WEIGHT.semantic + userScore * SCORE_WEIGHT.user + businessScore * SCORE_WEIGHT.business
+    return { item, semanticScore, userScore, businessScore, finalScore }
+  })
+}
+
+function applyDiversityConstraint(scored: ScoredRecommendation[], maxPerTag = DIVERSITY_TAG_LIMIT): ScoredRecommendation[] {
+  const selected: ScoredRecommendation[] = []
+  const audienceTagCount = new Map<string, number>()
+  for (const entry of scored) {
+    if (selected.length >= 3) break
+    const tags = normalizeTags(entry.item.tags, entry.item.name)
+    const isOverLimit = tags.some((tag) => (audienceTagCount.get(tag) ?? 0) >= maxPerTag)
+    if (isOverLimit) continue
+    selected.push(entry)
+    tags.forEach((tag) => audienceTagCount.set(tag, (audienceTagCount.get(tag) ?? 0) + 1))
+  }
+  if (selected.length >= 3) return selected
+  const selectedKeys = new Set(selected.map((entry) => entry.item.name.toLowerCase()))
+  for (const entry of scored) {
+    if (selected.length >= 3) break
+    const key = entry.item.name.toLowerCase()
+    if (selectedKeys.has(key)) continue
+    selected.push(entry)
+    selectedKeys.add(key)
+  }
+  return selected
+}
+
+function maybeInjectExplorationCandidate(selected: ScoredRecommendation[], pool: ScoredRecommendation[]): ScoredRecommendation[] {
+  if (selected.length <= EXPLORATION_SLOT_INDEX) return selected
+  if (Math.random() >= EXPLORATION_RATE) return selected
+
+  const selectedKeys = new Set(selected.map((entry) => entry.item.name.toLowerCase()))
+  const candidates = pool.filter((entry) => !selectedKeys.has(entry.item.name.toLowerCase()))
+  if (!candidates.length) return selected
+  const highPotentialCandidates = candidates
+    .sort((a, b) => b.finalScore - a.finalScore)
+    .slice(0, Math.max(1, Math.ceil(candidates.length / 2)))
+  const sampled = highPotentialCandidates[Math.floor(Math.random() * highPotentialCandidates.length)]
+  const next = [...selected]
+  next[EXPLORATION_SLOT_INDEX] = sampled
+  return next
+}
+
+function normalizeRecommendations(
+  recommendations: RecommendItem[],
+  query: string,
+  locale: SupportedLocale,
+  semanticScoreByTool: Map<string, number> = new Map(),
+  userScoreByTool: Map<string, number> = new Map(),
+): ScoredRecommendation[] {
   const cleaned = recommendations
     .map((item) => ({
       name: item.name.trim(),
@@ -749,30 +840,35 @@ function normalizeRecommendations(recommendations: RecommendItem[], query: strin
     }
   }
 
-  const sorted = Array.from(deduped.values()).sort((a, b) => {
-    const aPriority = PRIORITY_TOOLS.indexOf(a.item.name.toLowerCase() as (typeof PRIORITY_TOOLS)[number])
-    const bPriority = PRIORITY_TOOLS.indexOf(b.item.name.toLowerCase() as (typeof PRIORITY_TOOLS)[number])
-    const aRank = aPriority === -1 ? Number.MAX_SAFE_INTEGER : aPriority
-    const bRank = bPriority === -1 ? Number.MAX_SAFE_INTEGER : bPriority
-    if (aRank !== bRank) {
-      return aRank - bRank
-    }
-    return a.index - b.index
-  })
-
-  const result = sorted.map((entry) => withQueryContext(entry.item, query, locale))
-  const existing = new Set(result.map((item) => item.name.toLowerCase()))
-  for (const fallback of buildFallbackRecommendations(query, locale)) {
-    if (result.length >= 3) {
-      break
-    }
+  const baseItems = Array.from(deduped.values())
+    .sort((a, b) => a.index - b.index)
+    .map((entry) => withQueryContext(entry.item, query, locale))
+  const fallbackItems = buildFallbackRecommendations(query, locale)
+  const allItems = [...baseItems]
+  const existing = new Set(allItems.map((item) => item.name.toLowerCase()))
+  for (const fallback of fallbackItems) {
     if (!existing.has(fallback.name.toLowerCase())) {
-      result.push(fallback)
+      allItems.push(fallback)
       existing.add(fallback.name.toLowerCase())
     }
   }
 
-  return result.slice(0, 3)
+  const scored = buildRecommendationScores(allItems, semanticScoreByTool, userScoreByTool).sort((a, b) => b.finalScore - a.finalScore)
+  const diversified = applyDiversityConstraint(scored, DIVERSITY_TAG_LIMIT)
+  return maybeInjectExplorationCandidate(diversified, scored).slice(0, 3)
+}
+
+function toResponseItems(scored: ScoredRecommendation[], debug: boolean): RecommendItem[] {
+  if (!debug) {
+    return scored.map((entry) => entry.item)
+  }
+  return scored.map((entry) => ({
+    ...entry.item,
+    semantic_score: Number(entry.semanticScore.toFixed(4)),
+    user_score: Number(entry.userScore.toFixed(4)),
+    business_score: Number(entry.businessScore.toFixed(4)),
+    final_score: Number(entry.finalScore.toFixed(4)),
+  })) as RecommendItem[]
 }
 
 function textDominantLanguage(text: string): SupportedLocale | null {
@@ -842,6 +938,9 @@ async function getAuthenticatedUserBehavior(userId: string): Promise<UserBehavio
         if (operation === "remove") return null
         return { type: "favorite", toolId: normalizeToolId(toolId), timestamp } satisfies UserBehaviorEvent
       }
+      if (event.action !== "click") {
+        return null
+      }
       const toolId = event.toolId?.trim()
       if (!toolId) return null
       return { type: "click", toolId: normalizeToolId(toolId), timestamp } satisfies UserBehaviorEvent
@@ -894,6 +993,7 @@ export async function POST(request: Request) {
   })) as RecommendRequest | null
   const query = body?.query?.trim()
   const locale = parseLocale(body?.locale)
+  const debug = body?.debug === true
   if (!query) {
     return NextResponse.json({ error: "Invalid query" }, { status: 400 })
   }
@@ -905,15 +1005,24 @@ export async function POST(request: Request) {
     const behaviorEvents = userId ? await getAuthenticatedUserBehavior(userId) : getAnonymousBehaviorFromBody(body?.localBehavior)
     const userBehavior: UserBehaviorPayload = { events: behaviorEvents }
     const [queryEmbedding, toolEmbeddings] = await Promise.all([createEmbeddingWithDegrade(safeQuery), getToolEmbeddings()])
+    const semanticScoreByTool = new Map(
+      toolEmbeddings.map((item) => [item.tool.name.toLowerCase(), Math.max(0, cosineSimilarity(queryEmbedding, item.embedding) || 0)]),
+    )
+    const userScoreByTool = new Map<string, number>()
 
     if (toolEmbeddings.length === 0) {
       const tools = await getActiveTools()
       return NextResponse.json(
-        normalizeRecommendations(
+        toResponseItems(
+          normalizeRecommendations(
           tools.slice(0, 3).map((tool) => toRecommendItem(tool, safeQuery, locale)),
           safeQuery,
           locale,
-        ).slice(0, 3),
+            semanticScoreByTool,
+            userScoreByTool,
+          ).slice(0, 3),
+          debug,
+        ),
       )
     }
 
@@ -927,6 +1036,7 @@ export async function POST(request: Request) {
           toolEmbeddings.map(toToolEmbeddingRecord),
           3,
         )
+        rankedByUser.forEach((item) => userScoreByTool.set(item.toolId.toLowerCase(), Math.max(0, item.score || 0)))
         const toolByName = new Map(toolEmbeddings.map((item) => [item.tool.name.toLowerCase(), item.tool]))
         const rankedTools = rankedByUser
           .map((item) => toolByName.get(item.toolId.toLowerCase()))
@@ -938,29 +1048,39 @@ export async function POST(request: Request) {
         ].slice(0, 3)
 
         return NextResponse.json(
-          normalizeRecommendations(
+          toResponseItems(
+            normalizeRecommendations(
             mergedTools.map((tool) => toRecommendItem(tool, safeQuery, locale)),
             safeQuery,
             locale,
-          ).slice(0, 3),
+              semanticScoreByTool,
+              userScoreByTool,
+            ).slice(0, 3),
+            debug,
+          ),
         )
       }
     }
 
     const refined = await refineTopToolsWithLLM(safeQuery, topTools, locale)
     if (refined) {
-      const normalized = normalizeRecommendations(refined, safeQuery, locale)
+      const normalized = normalizeRecommendations(refined, safeQuery, locale, semanticScoreByTool, userScoreByTool)
       if (normalized.length > 0) {
-        return NextResponse.json(normalized.slice(0, 3))
+        return NextResponse.json(toResponseItems(normalized.slice(0, 3), debug))
       }
     }
 
     return NextResponse.json(
-      normalizeRecommendations(
+      toResponseItems(
+        normalizeRecommendations(
         topTools.map((tool) => toRecommendItem(tool, safeQuery, locale)),
         safeQuery,
         locale,
-      ).slice(0, 3),
+          semanticScoreByTool,
+          userScoreByTool,
+        ).slice(0, 3),
+        debug,
+      ),
     )
   } catch (error) {
     console.error("Embedding recommendation failed, fallback to existing logic:", error)
@@ -969,7 +1089,12 @@ export async function POST(request: Request) {
   try {
     const apiKey = process.env.ZHIPU_API_KEY
     if (!apiKey) {
-      return NextResponse.json(buildFallbackRecommendations(safeQuery, locale).slice(0, 3))
+      return NextResponse.json(
+        toResponseItems(
+          normalizeRecommendations(buildFallbackRecommendations(safeQuery, locale), safeQuery, locale).slice(0, 3),
+          debug,
+        ),
+      )
     }
 
     const requestBody = {
@@ -1003,7 +1128,12 @@ export async function POST(request: Request) {
     if (!zhipuResponse.ok) {
       const errorText = await zhipuResponse.text()
       console.error(`Zhipu API request failed: ${zhipuResponse.status} ${errorText}`)
-      return NextResponse.json(buildFallbackRecommendations(safeQuery, locale).slice(0, 3))
+      return NextResponse.json(
+        toResponseItems(
+          normalizeRecommendations(buildFallbackRecommendations(safeQuery, locale), safeQuery, locale).slice(0, 3),
+          debug,
+        ),
+      )
     }
 
     const completion = (await zhipuResponse.json()) as ZhipuChatResponse
@@ -1014,7 +1144,7 @@ export async function POST(request: Request) {
     }
 
     let recommendations = normalizeRecommendations(extractJsonArrayFromContent(content), safeQuery, locale)
-    if (!isRecommendationLocaleMatch(recommendations, locale)) {
+    if (!isRecommendationLocaleMatch(recommendations.map((item) => item.item), locale)) {
       const retryResponse = await fetch(ZHIPU_API_URL, {
         method: "POST",
         signal: AbortSignal.timeout(ZHIPU_API_TIMEOUT_MS),
@@ -1049,9 +1179,14 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json(recommendations)
+    return NextResponse.json(toResponseItems(recommendations, debug))
   } catch (error) {
     console.error("Error in /api/recommend fallback:", error)
-    return NextResponse.json(buildFallbackRecommendations(safeQuery, locale).slice(0, 3))
+    return NextResponse.json(
+      toResponseItems(
+        normalizeRecommendations(buildFallbackRecommendations(safeQuery, locale), safeQuery, locale).slice(0, 3),
+        debug,
+      ),
+    )
   }
 }

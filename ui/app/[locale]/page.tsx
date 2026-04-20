@@ -193,6 +193,7 @@ export default function Home() {
   })
   const [favoriteAnimatingTool, setFavoriteAnimatingTool] = useState("")
   const resultsTitleRef = useRef<HTMLDivElement>(null)
+  const lastExposureSignatureRef = useRef("")
   const resultRankMap = useMemo(() => {
     return new Map(results.map((item, index) => [item.name, index]))
   }, [results])
@@ -325,6 +326,24 @@ export default function Home() {
       resultsTitleRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
     }
   }, [isLoading, results.length])
+
+  useEffect(() => {
+    if (isLoading || results.length === 0) return
+    const signature = results.map((item, index) => `${index + 1}:${item.name}`).join("|")
+    if (lastExposureSignatureRef.current === signature) return
+    lastExposureSignatureRef.current = signature
+
+    results.forEach((item, index) => {
+      void track({
+        action: "exposure",
+        toolId: item.name,
+        metadata: {
+          rank: index + 1,
+          source: "recommendation_list",
+        },
+      }).catch(() => {})
+    })
+  }, [isLoading, results])
 
   const saveHistory = (inputQuery: string) => {
     const normalizedQuery = inputQuery.trim()
@@ -735,6 +754,10 @@ export default function Home() {
                               void track({
                                 action: "click",
                                 toolId: favorite.name,
+                                metadata: {
+                                  source: "favorites_panel",
+                                  rank: (resultRankMap.get(favorite.name) ?? -1) + 1,
+                                },
                               }).catch(() => {})
                             }}
                           >
@@ -888,6 +911,10 @@ export default function Home() {
                           void track({
                             action: "click",
                             toolId: item.name,
+                            metadata: {
+                              source: "recommendation_list",
+                              rank: (resultRankMap.get(item.name) ?? 0) + 1,
+                            },
                           }).catch(() => {})
                         }}
                       >
