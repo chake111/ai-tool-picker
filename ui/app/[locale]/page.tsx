@@ -443,7 +443,7 @@ export default function Home() {
     void track({
       action: "favorite",
       toolId: item.name,
-      keyword: action,
+      operation: action,
     }).catch(() => {})
 
     setFavorites((prev) => {
@@ -735,7 +735,6 @@ export default function Home() {
                               void track({
                                 action: "click",
                                 toolId: favorite.name,
-                                keyword: favorite.link,
                               }).catch(() => {})
                             }}
                           >
@@ -889,7 +888,6 @@ export default function Home() {
                           void track({
                             action: "click",
                             toolId: item.name,
-                            keyword: item.link,
                           }).catch(() => {})
                         }}
                       >

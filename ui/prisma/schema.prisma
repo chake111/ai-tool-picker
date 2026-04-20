@@ -23,6 +23,7 @@ model UserEvent {
   action    UserEventAction
   toolId    String?         @map("tool_id")
   keyword   String?
+  metadata  Json?
   userId    String?         @map("user_id")
   createdAt DateTime        @default(now()) @map("created_at")
 
