@@ -29,6 +29,17 @@
       "pitchDeck": "做产品路演 PPT",
       "chinesePolish": "中文写作润色"
     },
+    "onboarding": {
+      "title": "欢迎使用 AI Tool Picker",
+      "subtitle": "30 秒快速了解怎么问，马上拿到高质量推荐。",
+      "inputWay": "输入方式：用一句话描述目标，例如“我想做一份融资路演 PPT”。",
+      "useCases": "可用场景：写作、编程、设计、视频、数据分析、翻译等。",
+      "outputFormat": "结果形式：返回 3-6 个工具，包含推荐理由、适用标签与官网链接。",
+      "startNow": "立即体验（推荐）",
+      "skip": "跳过",
+      "highQualityExample": "我要为跨境电商品牌制作一份 10 页英文路演 PPT，并附带演讲稿",
+      "exampleLabel": "高质量示例：{example}"
+    },
     "history": {
       "title": "历史搜索",
       "clear": "清空历史",

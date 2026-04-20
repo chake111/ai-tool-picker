@@ -30,6 +30,17 @@
       "pitchDeck": "Create a product pitch deck PPT",
       "chinesePolish": "Polish Chinese writing"
     },
+    "onboarding": {
+      "title": "Welcome to AI Tool Picker",
+      "subtitle": "Learn the best way to ask in 30 seconds and get quality picks immediately.",
+      "inputWay": "How to input: describe your goal in one sentence, e.g. “I need a fundraising pitch deck.”",
+      "useCases": "Use cases: writing, coding, design, video creation, data analysis, translation, and more.",
+      "outputFormat": "Result format: 3-6 tools with fit reasons, scenario tags, and official links.",
+      "startNow": "Start now (Recommended)",
+      "skip": "Skip",
+      "highQualityExample": "I need a 10-slide English pitch deck for a cross-border e-commerce brand, plus speaker notes",
+      "exampleLabel": "High-quality example: {example}"
+    },
     "history": {
       "title": "Search history",
       "clear": "Clear history",
