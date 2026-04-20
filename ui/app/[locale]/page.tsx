@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { AudioWaveform, BarChart3, Code2, Heart, Image, Languages, PenTool, Presentation, RotateCcw, Search, Trash2, Video } from "lucide-react"
+import { AudioWaveform, BarChart3, Code2, Heart, Image, Languages, PenTool, Presentation, RotateCcw, Scale, Search, Trash2, Video } from "lucide-react"
 import { signIn, signOut, useSession } from "next-auth/react"
 import { useLocale, useTranslations } from "next-intl"
 import { SearchInput } from "@/components/search-input"
@@ -1212,95 +1212,97 @@ export default function Home() {
                     )}
                   >
                   <div className="flex h-full flex-col">
-                   <div className="flex items-start justify-between gap-3">
-                       <h2 className="text-lg font-semibold text-foreground">{item.name}</h2>
-                       <div className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => handleFavoriteToggle(item)}
-                            className={cn(
-                              "inline-flex items-center gap-1 text-xs transition-transform duration-150 active:scale-95",
-                              isToolFavorited(item.name)
-                                ? "text-rose-500"
-                                : "text-muted-foreground hover:text-foreground",
-                              favoriteAnimatingTool === item.name ? "scale-95" : "scale-100",
-                            )}
-                            title={isToolFavorited(item.name) ? t("favorites.remove") : t("favorites.add")}
-                            aria-label={
-                              isToolFavorited(item.name)
-                                ? t("favorites.removeOne", { name: item.name })
-                                : t("favorites.addOne", { name: item.name })
-                            }
-                         >
-                            <Heart className={cn("size-4", isToolFavorited(item.name) ? "fill-current" : "")} />
-                            <span>{isToolFavorited(item.name) ? t("favorites.added") : t("favorites.add")}</span>
-                          </button>
-                           <Button
-                             type="button"
-                             size="sm"
-                             variant={isToolSelected(item.name) ? "secondary" : "outline"}
-                             onClick={() => handleCompareToggle(item)}
-                             aria-pressed={isToolSelected(item.name)}
-                             aria-label={t("compare.addOne", { name: item.name })}
-                             className={cn(
-                               "min-w-20",
-                               isToolSelected(item.name) ? "border-primary bg-primary/10 text-primary" : "",
-                             )}
+                    <div className="flex items-start justify-between gap-3">
+                      <h2 className="text-lg font-semibold text-foreground">{item.name}</h2>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="ghost"
+                          onClick={() => handleFavoriteToggle(item)}
+                          className={cn(
+                            "text-muted-foreground transition-transform duration-150 active:scale-95",
+                            isToolFavorited(item.name) ? "text-rose-500" : "hover:text-foreground",
+                            favoriteAnimatingTool === item.name ? "scale-95" : "scale-100",
+                          )}
+                          title={isToolFavorited(item.name) ? t("favorites.remove") : t("favorites.add")}
+                          aria-label={
+                            isToolFavorited(item.name)
+                              ? t("favorites.removeOne", { name: item.name })
+                              : t("favorites.addOne", { name: item.name })
+                          }
+                        >
+                          <Heart className={cn("size-4", isToolFavorited(item.name) ? "fill-current" : "")} />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="ghost"
+                          onClick={() => handleCompareToggle(item)}
+                          aria-pressed={isToolSelected(item.name)}
+                          aria-label={t("compare.addOne", { name: item.name })}
+                          title={isToolSelected(item.name) ? t("compare.added") : t("compare.add")}
+                          className={cn(
+                            "text-muted-foreground hover:text-foreground",
+                            isToolSelected(item.name) ? "bg-primary/10 text-primary hover:text-primary" : "",
+                          )}
+                        >
+                          <Scale className="size-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="mt-2 space-y-2">
+                      {Array.isArray(item.tags) && item.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {item.tags.map((tag) => (
+                            <span
+                              key={`${item.name}-${tag}`}
+                              className="rounded-full bg-muted px-2.5 py-1 text-xs text-foreground"
                             >
-                              {isToolSelected(item.name) ? t("compare.added") : t("compare.add")}
-                            </Button>
-                            <Button type="button" size="sm" variant="ghost" onClick={() => handleDetailOpen(item)}>
-                              {t("details.view")}
-                            </Button>
+                              {tag}
+                            </span>
+                          ))}
                         </div>
-                      </div>
-                    {Array.isArray(item.tags) && item.tags.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {item.tags.map((tag) => (
-                          <span
-                            key={`${item.name}-${tag}`}
-                            className="rounded-full bg-muted px-2.5 py-1 text-xs text-foreground"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                     <p className="mt-2 text-sm text-muted-foreground" title={item.desc}>
+                      )}
+                      <p className="text-sm text-muted-foreground" title={item.desc}>
                        {item.desc}
-                     </p>
-                     <div className="mt-3 grid grid-cols-1 gap-1 rounded-lg border border-border/70 bg-muted/20 p-3 text-xs text-foreground sm:grid-cols-2">
+                      </p>
+                    </div>
+                    <div className="mt-3 grid grid-cols-1 gap-1 rounded-lg border border-border/70 bg-muted/20 p-3 text-xs text-foreground sm:grid-cols-2">
                        <p><span className="text-muted-foreground">{t("details.fields.priceRange")}：</span>{item.priceRange}</p>
                        <p><span className="text-muted-foreground">{t("details.fields.platform")}：</span>{item.platform}</p>
                        <p className="sm:col-span-2"><span className="text-muted-foreground">{t("details.fields.languageSupport")}：</span>{item.languageSupport}</p>
-                     </div>
-                     <p className="mt-3 text-sm text-foreground">{item.reason}</p>
-                  <div className="mt-5">
-                    <Button asChild className="w-full sm:w-auto">
-                      <a
-                        href={item.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() => {
-                          void track({
-                            action: "click",
-                            toolId: item.name,
-                            metadata: {
-                              source: "recommendation_list",
-                              rank: (resultRankMap.get(item.name) ?? 0) + 1,
-                              locale,
-                              query: recommendMeta?.query ?? lastSearchedQuery,
-                              scenario: recommendMeta?.scenario ?? "general",
-                              ranker: recommendMeta?.ranker ?? "v1",
-                              requestId: recommendMeta?.requestId ?? "unknown",
-                            },
-                          }).catch(() => {})
-                        }}
-                      >
-                        {t("common.visitWebsite")}
-                      </a>
-                    </Button>
-                  </div>
+                    </div>
+                    <p className="mt-3 text-sm text-foreground">{item.reason}</p>
+                    <div className="mt-5 flex flex-col gap-2">
+                      <Button asChild className="w-full sm:w-auto">
+                        <a
+                          href={item.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => {
+                            void track({
+                              action: "click",
+                              toolId: item.name,
+                              metadata: {
+                                source: "recommendation_list",
+                                rank: (resultRankMap.get(item.name) ?? 0) + 1,
+                                locale,
+                                query: recommendMeta?.query ?? lastSearchedQuery,
+                                scenario: recommendMeta?.scenario ?? "general",
+                                ranker: recommendMeta?.ranker ?? "v1",
+                                requestId: recommendMeta?.requestId ?? "unknown",
+                              },
+                            }).catch(() => {})
+                          }}
+                        >
+                          {t("common.visitWebsite")}
+                        </a>
+                      </Button>
+                      <Button type="button" size="sm" variant="ghost" className="w-full justify-start sm:w-auto" onClick={() => handleDetailOpen(item)}>
+                        {t("details.view")}
+                      </Button>
+                    </div>
                 </div>
               </Card>
             ))}
