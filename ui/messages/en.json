@@ -95,6 +95,7 @@
   "filters": {
     "title": "Filters:",
     "options": {
+      "all": "All",
       "free": "Free",
       "paid": "Paid",
       "beginner": "Beginner",

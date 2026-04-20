@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react"
 import { AudioWaveform, BarChart3, Code2, Heart, Image, Languages, PenTool, Presentation, RotateCcw, Scale, Search, Trash2, Video } from "lucide-react"
 import { signIn, signOut, useSession } from "next-auth/react"
 import { useLocale, useTranslations } from "next-intl"
@@ -79,13 +79,9 @@ const MAX_COMPARE_TOOLS = 3
 const AI_KEYWORD_REGEX = /(?:\bai\b|人工智能|大模型|生成式|llm|gpt|copilot|智能)/i
 const FAVORITE_ANIMATION_DURATION_MS = 250
 const MAIN_COMPARE_PADDING_CLASS = "pb-72 sm:pb-64"
-const FILTER_OPTIONS: Array<{ key: keyof HomeFilters; group: "price" | "multi" }> = [
-  { key: "free", group: "price" },
-  { key: "paid", group: "price" },
-  { key: "beginner", group: "multi" },
-  { key: "pro", group: "multi" },
-  { key: "chinese", group: "multi" },
-]
+const FILTER_OPTIONS: Array<keyof Pick<HomeFilters, "beginner" | "pro" | "chinese">> = ["beginner", "pro", "chinese"]
+const PRICE_FILTER_OPTIONS = ["all", "free", "paid"] as const
+type PriceFilterOption = (typeof PRICE_FILTER_OPTIONS)[number]
 const DEFAULT_USER_PREFERENCES: UserPreferences = {
   pricing: "any",
   chineseFirst: false,
@@ -663,16 +659,40 @@ export default function Home() {
   const handleFilterToggle = (filter: keyof typeof activeFilters) => {
     setActiveFilters((prev) => {
       if (filter === "free") {
-        const nextFree = !prev.free
-        return { ...prev, free: nextFree, paid: nextFree ? false : prev.paid }
+        return { ...prev, free: true, paid: false }
       }
       if (filter === "paid") {
-        const nextPaid = !prev.paid
-        return { ...prev, paid: nextPaid, free: nextPaid ? false : prev.free }
+        return { ...prev, paid: true, free: false }
       }
       return { ...prev, [filter]: !prev[filter] }
     })
   }
+
+  const handlePriceFilterToggle = (option: PriceFilterOption) => {
+    if (option === "all") {
+      setActiveFilters((prev) => ({ ...prev, free: false, paid: false }))
+      return
+    }
+    handleFilterToggle(option)
+  }
+
+  const handlePriceFilterKeyDown = (option: PriceFilterOption, event: KeyboardEvent<HTMLButtonElement>) => {
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return
+    event.preventDefault()
+    const currentIndex = PRICE_FILTER_OPTIONS.indexOf(option)
+    if (currentIndex === -1) return
+    const nextIndex =
+      event.key === "ArrowRight" || event.key === "ArrowDown"
+        ? (currentIndex + 1) % PRICE_FILTER_OPTIONS.length
+        : event.key === "ArrowLeft" || event.key === "ArrowUp"
+          ? (currentIndex - 1 + PRICE_FILTER_OPTIONS.length) % PRICE_FILTER_OPTIONS.length
+          : event.key === "Home"
+            ? 0
+            : PRICE_FILTER_OPTIONS.length - 1
+    handlePriceFilterToggle(PRICE_FILTER_OPTIONS[nextIndex])
+  }
+
+  const selectedPriceFilter: PriceFilterOption = activeFilters.free ? "free" : activeFilters.paid ? "paid" : "all"
 
   const clearCompareLimitHint = () => setCompareLimitHint("")
 
@@ -1173,16 +1193,40 @@ export default function Home() {
                  </p>
                  <p className="text-xs text-muted-foreground">{t("home.resultsSubtitle")}</p>
                </div>
-               <div className="flex flex-wrap items-center gap-2">
-                 <p className="text-xs text-muted-foreground">{t("filters.title")}</p>
+               <div className="flex flex-col gap-2" role="group" aria-label={t("filters.title")}>
+                 <p id="result-filters-heading" className="text-xs text-muted-foreground">{t("filters.title")}</p>
+                 <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-labelledby="result-filters-heading">
+                   {PRICE_FILTER_OPTIONS.map((option) => {
+                     const selected = selectedPriceFilter === option
+                     return (
+                       <button
+                         key={option}
+                         type="button"
+                         onClick={() => handlePriceFilterToggle(option)}
+                         onKeyDown={(event) => handlePriceFilterKeyDown(option, event)}
+                         className={cn(
+                           "rounded-full border px-3 py-1 text-xs transition-colors",
+                           selected
+                             ? "border-foreground bg-foreground text-background"
+                             : "border-border bg-background text-foreground hover:bg-muted",
+                         )}
+                         role="radio"
+                         aria-checked={selected}
+                         tabIndex={selected ? 0 : -1}
+                       >
+                         {t(`filters.options.${option}`)}
+                       </button>
+                     )
+                   })}
+                 </div>
+                 <div className="flex flex-wrap items-center gap-2" aria-labelledby="result-filters-heading">
                  {FILTER_OPTIONS.map((filter) => {
-                   const selected = activeFilters[filter.key as keyof typeof activeFilters]
-                   const isPriceFilter = filter.group === "price"
+                   const selected = activeFilters[filter]
                    return (
                      <button
-                       key={filter.key}
+                       key={filter}
                        type="button"
-                       onClick={() => handleFilterToggle(filter.key as keyof typeof activeFilters)}
+                       onClick={() => handleFilterToggle(filter)}
                        className={cn(
                          "rounded-full border px-3 py-1 text-xs transition-colors",
                          selected
@@ -1190,13 +1234,12 @@ export default function Home() {
                            : "border-border bg-background text-foreground hover:bg-muted",
                        )}
                        aria-pressed={selected}
-                       role={isPriceFilter ? "radio" : undefined}
-                       aria-checked={isPriceFilter ? selected : undefined}
                      >
-                       {t(`filters.options.${filter.key}`)}
+                       {t(`filters.options.${filter}`)}
                      </button>
                    )
                  })}
+                 </div>
                </div>
                {compareLimitHint && (
                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">

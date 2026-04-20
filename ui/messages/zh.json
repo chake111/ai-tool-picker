@@ -95,6 +95,7 @@
   "filters": {
     "title": "筛选：",
     "options": {
+      "all": "全部",
       "free": "免费",
       "paid": "付费",
       "beginner": "新手",
