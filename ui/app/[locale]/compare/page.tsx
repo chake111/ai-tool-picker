@@ -83,14 +83,14 @@ export default function ComparePage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-8 sm:px-6 lg:px-8">
+    <main className="app-page-container max-w-5xl gap-4 pb-8">
       <CompareToolbar>
         <h1 className="text-2xl font-semibold">{t("compare.title", { current: comparedTools.length, max: 3 })}</h1>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant={viewMode === "table" ? "secondary" : "outline"} onClick={() => setViewMode("table")}>
+          <Button size="sm" variant={viewMode === "table" ? "default" : "outline"} onClick={() => setViewMode("table")}>
             {t("compare.view.table")}
           </Button>
-          <Button size="sm" variant={viewMode === "list" ? "secondary" : "outline"} onClick={() => setViewMode("list")}>
+          <Button size="sm" variant={viewMode === "list" ? "default" : "outline"} onClick={() => setViewMode("list")}>
             {t("compare.view.list")}
           </Button>
           <Button size="sm" variant="outline" onClick={handleClear} disabled={comparedTools.length === 0}>
@@ -144,7 +144,7 @@ export default function ComparePage() {
       ) : (
         <CompareList>
           {comparedTools.map((tool) => (
-            <article key={tool.name} className="rounded-xl border border-border/80 p-4">
+            <article key={tool.name} className="app-panel app-interactive rounded-[var(--radius-md-token)] p-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-base font-semibold">{tool.name}</h2>

@@ -48,7 +48,7 @@ export default function HomePage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pb-28 pt-8 sm:px-6 lg:px-8">
+    <main className="app-page-container">
       <HomeHero
         title={t("home.subtitle")}
         subtitle={t("home.heroHint")}

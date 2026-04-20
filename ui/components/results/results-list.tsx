@@ -87,8 +87,8 @@ export function ResultsList<TFilter extends string, TSort extends string>({
 }: ResultsListProps<TFilter, TSort>) {
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold">{title}</h2>
+      <div className="app-toolbar">
+        <h2 className="app-section-title">{title}</h2>
         <ResultsToolbar
           filterOptions={filterOptions}
           activeFilter={filters}
@@ -104,7 +104,7 @@ export function ResultsList<TFilter extends string, TSort extends string>({
       </div>
 
       {results.length === 0 && !isLoading ? (
-        <Card className="rounded-2xl border-dashed p-5 text-sm text-muted-foreground">{emptyHint}</Card>
+        <Card className="app-panel border-dashed p-5 text-sm text-muted-foreground">{emptyHint}</Card>
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -116,10 +116,7 @@ export function ResultsList<TFilter extends string, TSort extends string>({
               const compareFeedback = getActionFeedbackState(item.name, "compare")
               const visitFeedback = getActionFeedbackState(item.name, "visit")
               return (
-                <Card
-                  key={item.name}
-                  className="animate-in fade-in slide-in-from-bottom-1.5 rounded-2xl border border-border/80 p-5 duration-500"
-                >
+                <Card key={item.name} className="app-panel app-interactive animate-in fade-in slide-in-from-bottom-1.5 p-5 duration-500">
                   <div className="space-y-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3">
@@ -129,13 +126,7 @@ export function ResultsList<TFilter extends string, TSort extends string>({
                           <p className="mt-1 text-sm text-muted-foreground">{item.desc}</p>
                         </div>
                       </div>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant={favorited ? "default" : "outline"}
-                        aria-label={`收藏 ${item.name}`}
-                        onClick={() => onToggleFavorite(item)}
-                      >
+                      <Button type="button" size="icon" variant="ghost" aria-label={`收藏 ${item.name}`} onClick={() => onToggleFavorite(item)}>
                         {favoriteFeedback === "done" ? <Check className="h-4 w-4" /> : <Heart className="h-4 w-4" />}
                       </Button>
                     </div>
@@ -159,10 +150,10 @@ export function ResultsList<TFilter extends string, TSort extends string>({
                         <Button size="sm" variant="outline" className="rounded-xl" onClick={() => onVisitWebsite(item)}>
                           {visitFeedback === "done" ? visitedWebsiteLabel : visitWebsiteLabel}
                         </Button>
-                        <Button size="sm" variant={selected ? "default" : "outline"} className="rounded-xl" onClick={() => onToggleCompare(item)}>
+                        <Button size="sm" className="rounded-xl" onClick={() => onToggleCompare(item)}>
                           {compareFeedback === "done" ? addedLabel : compareLabel(selected, addLabel, addedLabel)}
                         </Button>
-                        <Button size="sm" variant={favorited ? "default" : "outline"} className="rounded-xl" onClick={() => onToggleFavorite(item)}>
+                        <Button size="sm" variant="outline" className="rounded-xl" onClick={() => onToggleFavorite(item)}>
                           {favoriteFeedback === "done" ? favoritedLabel : favorited ? favoritedLabel : favoriteLabel}
                         </Button>
                       </div>

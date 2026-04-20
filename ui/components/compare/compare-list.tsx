@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
 
 export function CompareList({ children }: { children: ReactNode }) {
-  return <div className="grid gap-3">{children}</div>
+  return <div className="grid gap-4">{children}</div>
 }
