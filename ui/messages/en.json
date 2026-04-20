@@ -33,7 +33,9 @@
     "history": {
       "title": "Search history",
       "clear": "Clear history",
-      "empty": "No recent searches"
+      "empty": "No history yet, try entering a need",
+      "reuse": "Reuse",
+      "deleteOne": "Delete history: {query}"
     },
     "categories": {
       "code": "Write code",

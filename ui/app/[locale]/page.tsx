@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Heart, Search } from "lucide-react"
+import { Heart, RotateCcw, Search, Trash2 } from "lucide-react"
 import { signIn, signOut, useSession } from "next-auth/react"
 import { useLocale, useTranslations } from "next-intl"
 import { SearchInput } from "@/components/search-input"
@@ -20,6 +20,7 @@ import { track } from "@/lib/track"
 type SearchHistoryItem = {
   query: string
   timestamp: number
+  locale?: "zh" | "en"
 }
 
 type HomeFilters = {
@@ -45,9 +46,13 @@ const FILTER_OPTIONS: Array<{ key: keyof HomeFilters; group: "price" | "multi" }
   { key: "pro", group: "multi" },
   { key: "chinese", group: "multi" },
 ]
-const buildNextHistory = (currentHistory: SearchHistoryItem[], query: string): SearchHistoryItem[] => {
-  const deduplicatedHistory = currentHistory.filter((item) => item.query !== query)
-  return [{ query, timestamp: Date.now() }, ...deduplicatedHistory].slice(0, HISTORY_LIMIT)
+const buildNextHistory = (
+  currentHistory: SearchHistoryItem[],
+  query: string,
+  locale: SearchHistoryItem["locale"],
+): SearchHistoryItem[] => {
+  const deduplicatedHistory = currentHistory.filter((item) => !(item.query === query && item.locale === locale))
+  return [{ query, timestamp: Date.now(), locale }, ...deduplicatedHistory].slice(0, HISTORY_LIMIT)
 }
 
 const getFavoriteAiScore = (tool: FavoriteItem) => {
@@ -90,7 +95,16 @@ export default function Home() {
     chinese: false,
   })
   const [favoriteAnimatingTool, setFavoriteAnimatingTool] = useState("")
-  const historySuggestions = useMemo(() => history.slice(0, 5).map((item) => item.query), [history])
+  const currentHistoryLocale: SearchHistoryItem["locale"] = locale === "zh" ? "zh" : "en"
+  const localizedHistory = useMemo(
+    () => history.filter((item) => !item.locale || item.locale === currentHistoryLocale),
+    [currentHistoryLocale, history],
+  )
+  const visibleHistory = useMemo(
+    () => (historyCollapsed ? localizedHistory.slice(0, 3) : localizedHistory),
+    [historyCollapsed, localizedHistory],
+  )
+  const historySuggestions = useMemo(() => localizedHistory.slice(0, 5).map((item) => item.query), [localizedHistory])
   const [recommendMeta, setRecommendMeta] = useState<{
     requestId: string
     ranker: "v1" | "v2"
@@ -148,7 +162,10 @@ export default function Home() {
       const sanitized = parsed
         .filter(
           (item): item is SearchHistoryItem =>
-            typeof item?.query === "string" && item.query.trim().length > 0 && typeof item?.timestamp === "number",
+            typeof item?.query === "string" &&
+            item.query.trim().length > 0 &&
+            typeof item?.timestamp === "number" &&
+            (item?.locale === undefined || item?.locale === "zh" || item?.locale === "en"),
         )
         .slice(0, HISTORY_LIMIT)
 
@@ -260,10 +277,10 @@ export default function Home() {
     if (!normalizedQuery) return
 
     setHistory((prev) => {
-      if (prev[0]?.query === normalizedQuery) {
+      if (prev[0]?.query === normalizedQuery && prev[0]?.locale === currentHistoryLocale) {
         return prev
       }
-      const nextHistory = buildNextHistory(prev, normalizedQuery)
+      const nextHistory = buildNextHistory(prev, normalizedQuery, currentHistoryLocale)
       localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(nextHistory))
       return nextHistory
     })
@@ -290,7 +307,7 @@ export default function Home() {
     setLastSearchedQuery(normalizedQuery)
 
     try {
-      const localHistorySnapshot = [{ query: normalizedQuery, timestamp: Date.now() }, ...history]
+      const localHistorySnapshot = [{ query: normalizedQuery, timestamp: Date.now(), locale: currentHistoryLocale }, ...history]
       const requestBody = {
         query: normalizedQuery,
         locale: locale === "zh" ? "zh" : "en",
@@ -372,6 +389,17 @@ export default function Home() {
     setHistory([])
     setHistoryCollapsed(true)
     localStorage.removeItem(HISTORY_STORAGE_KEY)
+  }
+
+  const handleDeleteHistoryItem = (target: SearchHistoryItem) => {
+    setHistory((prev) => {
+      const nextHistory = prev.filter(
+        (item) =>
+          !(item.query === target.query && item.timestamp === target.timestamp && (item.locale ?? "all") === (target.locale ?? "all")),
+      )
+      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(nextHistory))
+      return nextHistory
+    })
   }
 
   const isToolFavorited = (toolName: string) => favorites.some((tool) => tool.name === toolName)
@@ -565,8 +593,7 @@ export default function Home() {
             </p>
           )}
 
-          {history.length > 0 && (
-            <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+          <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs text-muted-foreground">{t("home.history.title")}</p>
                 <div className="flex items-center gap-2">
@@ -588,20 +615,41 @@ export default function Home() {
                   </button>
                 </div>
               </div>
-              <div id="history-panel" className={cn("mt-2 flex flex-wrap gap-2", historyCollapsed && "hidden")}>
-                {history.map((item) => (
-                  <button
-                    key={`${item.query}-${item.timestamp}`}
-                    type="button"
-                    onClick={() => handleHistoryClick(item.query)}
-                    className="rounded-md border border-border/70 bg-background px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-muted"
-                  >
-                    {item.query}
-                  </button>
-                ))}
+              <div id="history-panel" className="mt-2 space-y-2">
+                {localizedHistory.length === 0 ? (
+                  <p className="rounded-md border border-dashed border-border/70 bg-background/70 px-3 py-2 text-xs text-muted-foreground">
+                    {t("home.history.empty")}
+                  </p>
+                ) : (
+                  visibleHistory.map((item) => (
+                    <div
+                      key={`${item.query}-${item.timestamp}-${item.locale ?? "all"}`}
+                      className="flex items-center justify-between gap-2 rounded-md border border-border/70 bg-background px-2.5 py-1.5 text-xs"
+                    >
+                      <p className="truncate text-foreground">{item.query}</p>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleHistoryClick(item.query)}
+                          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        >
+                          <RotateCcw className="size-3" aria-hidden="true" />
+                          {t("home.history.reuse")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteHistoryItem(item)}
+                          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
+                          aria-label={t("home.history.deleteOne", { query: item.query })}
+                        >
+                          <Trash2 className="size-3" aria-hidden="true" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
-          )}
 
           {favoriteLimitHint && (
             <div
