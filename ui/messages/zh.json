@@ -21,6 +21,7 @@
     "subtitle": "告诉我你想做什么，我来推荐最合适的 AI 工具",
     "heroHint": "1 句话描述目标，我们会返回 3-6 个可直接上手的推荐。",
     "searchPlaceholder": "我想做PPT",
+    "searchEmptyPrompt": "请输入你的需求",
     "searchHelper": "将返回最匹配的 AI 工具及用途说明。",
     "searchAction": "帮我选",
     "examples": "输入示例：\"我想做一份融资路演 PPT\"、\"帮我写短视频脚本\"。结果预期：按场景给出工具名称、适用理由与官网链接。",
@@ -67,6 +68,29 @@
     "noResults": "本次搜索没有匹配结果",
     "emptyHint": "试试输入：做PPT、写文案、画图、写代码...",
     "popularTools": "热门工具"
+  },
+  "preferences": {
+    "title": "推荐偏好设置",
+    "subtitle": "偏好会和历史搜索一起用于推荐排序",
+    "reset": "重置偏好",
+    "pricing": {
+      "any": "不限价格",
+      "free": "免费优先",
+      "paid": "付费优先"
+    },
+    "chineseFirst": "中文优先",
+    "platformTitle": "平台偏好",
+    "platforms": {
+      "web": "网页端",
+      "mobile": "移动端",
+      "desktop": "桌面端"
+    },
+    "recommendationsTitle": "根据你的偏好推荐",
+    "recommendationsSubtitle": "先展示 3 条，可随时调整偏好刷新推荐",
+    "privacy": {
+      "local": "隐私说明：偏好与历史仅保存在本地浏览器，不会自动同步到服务端。",
+      "account": "隐私说明：偏好保存在本地；你的收藏与行为事件会同步到账号用于推荐。"
+    }
   },
   "filters": {
     "title": "筛选：",

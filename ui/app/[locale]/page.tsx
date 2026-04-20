@@ -40,6 +40,16 @@ type HomeFilters = {
   chinese: boolean
 }
 
+type UserPreferences = {
+  pricing: "any" | "free" | "paid"
+  chineseFirst: boolean
+  platforms: {
+    web: boolean
+    mobile: boolean
+    desktop: boolean
+  }
+}
+
 type QuickSceneConfig = {
   id: string
   icon: "code" | "presentation" | "image" | "pen" | "video" | "chart" | "audio" | "languages"
@@ -62,6 +72,7 @@ const QUICK_SCENE_ICON_MAP: Record<QuickSceneConfig["icon"], typeof Code2> = {
 const HISTORY_STORAGE_KEY = "ai_tool_picker_history"
 const FAVORITES_STORAGE_KEY = "ai_tool_picker_favorites"
 const ONBOARDING_STORAGE_KEY = "ai_tool_picker_has_seen_onboarding"
+const PREFERENCES_STORAGE_KEY = "ai_tool_picker_preferences"
 const HISTORY_LIMIT = 10
 const FAVORITES_LIMIT = 30
 const MAX_COMPARE_TOOLS = 3
@@ -75,31 +86,14 @@ const FILTER_OPTIONS: Array<{ key: keyof HomeFilters; group: "price" | "multi" }
   { key: "pro", group: "multi" },
   { key: "chinese", group: "multi" },
 ]
-type ToolDisplayInfo = {
-  priceRange: string
-  platform: string
-  languageSupport: string
-}
-type DisplayRecommendItem = RecommendItem & ToolDisplayInfo
-
-const TOOL_DISPLAY_INFO_MAP: Record<string, ToolDisplayInfo> = {
-  chatgpt: { priceRange: "免费+订阅", platform: "Web / iOS / Android", languageSupport: "多语言（含中文）" },
-  "notion ai": { priceRange: "订阅制", platform: "Web / Desktop / Mobile", languageSupport: "多语言（含中文）" },
-  gamma: { priceRange: "免费+订阅", platform: "Web", languageSupport: "多语言（含中文）" },
-  tome: { priceRange: "免费+订阅", platform: "Web", languageSupport: "英文为主" },
-  "beautiful.ai": { priceRange: "订阅制", platform: "Web", languageSupport: "英文为主" },
-  midjourney: { priceRange: "订阅制", platform: "Web / Discord", languageSupport: "英文为主" },
-  "github copilot": { priceRange: "免费+订阅", platform: "VS Code / JetBrains / CLI", languageSupport: "多语言（含中文）" },
-}
-
-function getToolDisplayInfo(item: RecommendItem): ToolDisplayInfo {
-  return (
-    TOOL_DISPLAY_INFO_MAP[item.name.trim().toLowerCase()] ?? {
-      priceRange: "待补充",
-      platform: "待补充",
-      languageSupport: "待补充",
-    }
-  )
+const DEFAULT_USER_PREFERENCES: UserPreferences = {
+  pricing: "any",
+  chineseFirst: false,
+  platforms: {
+    web: false,
+    mobile: false,
+    desktop: false,
+  },
 }
 const buildNextHistory = (
   currentHistory: SearchHistoryItem[],
@@ -159,6 +153,9 @@ export default function Home() {
   const [onboardingReady, setOnboardingReady] = useState(false)
   const [searchInputFocusSignal, setSearchInputFocusSignal] = useState(0)
   const [postOnboardingExample, setPostOnboardingExample] = useState("")
+  const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_USER_PREFERENCES)
+  const [personalizedPicks, setPersonalizedPicks] = useState<RecommendItem[]>([])
+  const [isLoadingPersonalized, setIsLoadingPersonalized] = useState(false)
   const currentHistoryLocale: SearchHistoryItem["locale"] = locale === "zh" ? "zh" : "en"
   const localizedHistory = useMemo(
     () => history.filter((item) => !item.locale || item.locale === currentHistoryLocale),
@@ -169,6 +166,15 @@ export default function Home() {
     [historyCollapsed, localizedHistory],
   )
   const historySuggestions = useMemo(() => localizedHistory.slice(0, 5).map((item) => item.query), [localizedHistory])
+  const hasAnyPreference = useMemo(() => {
+    return (
+      preferences.pricing !== "any" ||
+      preferences.chineseFirst ||
+      preferences.platforms.web ||
+      preferences.platforms.mobile ||
+      preferences.platforms.desktop
+    )
+  }, [preferences])
   const [recommendMeta, setRecommendMeta] = useState<{
     requestId: string
     ranker: "v1" | "v2"
@@ -267,6 +273,29 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
+    try {
+      const stored = localStorage.getItem(PREFERENCES_STORAGE_KEY)
+      if (!stored) return
+      const parsed = JSON.parse(stored) as Partial<UserPreferences>
+      setPreferences({
+        pricing: parsed.pricing === "free" || parsed.pricing === "paid" ? parsed.pricing : "any",
+        chineseFirst: parsed.chineseFirst === true,
+        platforms: {
+          web: parsed.platforms?.web === true,
+          mobile: parsed.platforms?.mobile === true,
+          desktop: parsed.platforms?.desktop === true,
+        },
+      })
+    } catch {
+      setPreferences(DEFAULT_USER_PREFERENCES)
+    }
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(preferences))
+  }, [preferences])
+
+  useEffect(() => {
     if (sessionStatus === "loading") return
     setFavoritesHydrated(false)
 
@@ -341,6 +370,54 @@ export default function Home() {
   }, [isLoading, results.length])
 
   useEffect(() => {
+    const shouldShowPersonalized = hasAnyPreference || localizedHistory.length > 0
+    if (!shouldShowPersonalized) {
+      setPersonalizedPicks([])
+      return
+    }
+
+    const controller = new AbortController()
+    const run = async () => {
+      setIsLoadingPersonalized(true)
+      try {
+        const seedQuery =
+          localizedHistory[0]?.query ??
+          (locale === "zh" ? "帮我推荐适合我偏好的 AI 工具" : "Recommend AI tools based on my preferences")
+        const response = await fetch("/api/recommend", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            query: seedQuery,
+            locale: locale === "zh" ? "zh" : "en",
+            ranker: "v2",
+            localBehavior: {
+              history: localizedHistory.slice(0, 10).map((item) => ({ query: item.query, timestamp: item.timestamp })),
+              favorites: favorites.slice(0, 10).map((item) => ({ toolId: item.toolId, name: item.name })),
+            },
+            preferences,
+          }),
+          signal: controller.signal,
+        })
+        if (!response.ok) return
+        const data = (await response.json()) as RecommendItem[]
+        setPersonalizedPicks(data.slice(0, 3))
+      } catch {
+        if (!controller.signal.aborted) {
+          setPersonalizedPicks([])
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoadingPersonalized(false)
+        }
+      }
+    }
+    void run()
+    return () => controller.abort()
+  }, [favorites, hasAnyPreference, locale, localizedHistory, preferences])
+
+  useEffect(() => {
     if (isLoading || results.length === 0) return
     const signature = results.map((item, index) => `${index + 1}:${item.name}`).join("|")
     if (lastExposureSignatureRef.current === signature) return
@@ -403,6 +480,7 @@ export default function Home() {
         query: normalizedQuery,
         locale: locale === "zh" ? "zh" : "en",
         ranker: Math.random() < 0.5 ? "v1" : "v2",
+        preferences,
         ...(!isLoggedIn
           ? {
               localBehavior: {
@@ -561,6 +639,25 @@ export default function Home() {
   const handleRemoveFavorite = (toolName: string) => {
     setFavorites((prev) => prev.filter((tool) => tool.name !== toolName))
     setFavoriteLimitHint("")
+  }
+
+  const handlePreferencePricingChange = (pricing: UserPreferences["pricing"]) => {
+    setPreferences((prev) => ({ ...prev, pricing }))
+  }
+
+  const handlePreferencePlatformToggle = (platform: keyof UserPreferences["platforms"]) => {
+    setPreferences((prev) => ({
+      ...prev,
+      platforms: {
+        ...prev.platforms,
+        [platform]: !prev.platforms[platform],
+      },
+    }))
+  }
+
+  const handleResetPreferences = () => {
+    setPreferences(DEFAULT_USER_PREFERENCES)
+    localStorage.removeItem(PREFERENCES_STORAGE_KEY)
   }
 
   const handleFilterToggle = (filter: keyof typeof activeFilters) => {
@@ -786,6 +883,87 @@ export default function Home() {
             <p className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs leading-relaxed text-muted-foreground sm:text-sm">
               {t("home.examples")}
             </p>
+          )}
+
+          <div className="rounded-xl border border-border/70 bg-muted/20 p-3 sm:p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-foreground">{t("preferences.title")}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{t("preferences.subtitle")}</p>
+              </div>
+              <Button type="button" variant="ghost" size="sm" onClick={handleResetPreferences}>
+                {t("preferences.reset")}
+              </Button>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(["any", "free", "paid"] as const).map((pricing) => (
+                <button
+                  key={`pricing-${pricing}`}
+                  type="button"
+                  onClick={() => handlePreferencePricingChange(pricing)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs transition-colors",
+                    preferences.pricing === pricing
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border bg-background text-foreground hover:bg-muted",
+                  )}
+                >
+                  {t(`preferences.pricing.${pricing}`)}
+                </button>
+              ))}
+            </div>
+            <label className="mt-3 inline-flex items-center gap-2 text-xs text-foreground">
+              <Checkbox
+                checked={preferences.chineseFirst}
+                onCheckedChange={(checked) =>
+                  setPreferences((prev) => ({ ...prev, chineseFirst: checked === true }))
+                }
+                aria-label={t("preferences.chineseFirst")}
+              />
+              {t("preferences.chineseFirst")}
+            </label>
+            <div className="mt-3">
+              <p className="text-xs text-muted-foreground">{t("preferences.platformTitle")}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(["web", "mobile", "desktop"] as const).map((platform) => (
+                  <button
+                    key={`platform-${platform}`}
+                    type="button"
+                    onClick={() => handlePreferencePlatformToggle(platform)}
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-xs transition-colors",
+                      preferences.platforms[platform]
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-border bg-background text-foreground hover:bg-muted",
+                    )}
+                  >
+                    {t(`preferences.platforms.${platform}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <p className="mt-3 rounded-md border border-dashed border-border/70 bg-background/80 px-2.5 py-2 text-xs text-muted-foreground">
+              {isLoggedIn ? t("preferences.privacy.account") : t("preferences.privacy.local")}
+            </p>
+          </div>
+
+          {(isLoadingPersonalized || personalizedPicks.length > 0) && (
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 sm:p-4">
+              <p className="text-sm font-semibold text-foreground">{t("preferences.recommendationsTitle")}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t("preferences.recommendationsSubtitle")}</p>
+              {isLoadingPersonalized ? (
+                <p className="mt-3 text-xs text-muted-foreground">{t("home.loading")}</p>
+              ) : (
+                <div className="mt-3 grid gap-2">
+                  {personalizedPicks.slice(0, 3).map((item) => (
+                    <div key={`pref-${item.name}`} className="rounded-lg border border-border/70 bg-background p-3">
+                      <p className="text-sm font-semibold text-foreground">{item.name}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{item.reason}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">

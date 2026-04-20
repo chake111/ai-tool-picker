@@ -19,6 +19,15 @@ type RecommendRequest = {
   locale?: string
   debug?: boolean
   ranker?: "v1" | "v2"
+  preferences?: {
+    pricing?: "any" | "free" | "paid"
+    chineseFirst?: boolean
+    platforms?: {
+      web?: boolean
+      mobile?: boolean
+      desktop?: boolean
+    }
+  }
   localBehavior?: {
     history?: Array<{ query?: string; timestamp?: number } | string>
     favorites?: Array<{ toolId?: string; name?: string }>
@@ -71,9 +80,10 @@ const DIVERSITY_TAG_LIMIT = 2
 const PRIORITY_TOOLS = ["chatgpt", "notion ai", "gamma", "tome", "beautiful.ai"] as const
 const PRIORITY_TOOL_BONUS = 0.08
 const SCORE_WEIGHT = {
-  semantic: 0.55,
-  user: 0.3,
-  business: 0.15,
+  semantic: 0.45,
+  user: 0.25,
+  business: 0.1,
+  preference: 0.2,
 } as const
 const TAG_PRIORITY = [
   "新手友好",
@@ -262,7 +272,18 @@ type ScoredRecommendation = {
   semanticScore: number
   userScore: number
   businessScore: number
+  preferenceScore: number
   finalScore: number
+}
+
+type UserPreferenceInput = {
+  pricing: "any" | "free" | "paid"
+  chineseFirst: boolean
+  platforms: {
+    web: boolean
+    mobile: boolean
+    desktop: boolean
+  }
 }
 
 function parseRanker(rawRanker: unknown): RankerVersion {
@@ -806,15 +827,20 @@ function buildRecommendationScores(
   recommendations: RecommendItem[],
   semanticScoreByTool: Map<string, number>,
   userScoreByTool: Map<string, number>,
+  preferences: UserPreferenceInput,
 ): ScoredRecommendation[] {
   return recommendations.map((item) => {
     const key = item.name.toLowerCase()
     const semanticScore = semanticScoreByTool.get(key) ?? 0
     const userScore = userScoreByTool.get(key) ?? 0
     const businessScore = getBusinessScore(item)
+    const preferenceScore = getPreferenceScore(item, preferences)
     const finalScore =
-      semanticScore * SCORE_WEIGHT.semantic + userScore * SCORE_WEIGHT.user + businessScore * SCORE_WEIGHT.business
-    return { item, semanticScore, userScore, businessScore, finalScore }
+      semanticScore * SCORE_WEIGHT.semantic +
+      userScore * SCORE_WEIGHT.user +
+      businessScore * SCORE_WEIGHT.business +
+      preferenceScore * SCORE_WEIGHT.preference
+    return { item, semanticScore, userScore, businessScore, preferenceScore, finalScore }
   })
 }
 
@@ -865,6 +891,7 @@ function normalizeRecommendations(
   userScoreByTool: Map<string, number> = new Map(),
   ranker: RankerVersion = "v1",
   scenario: string = "general",
+  preferences: UserPreferenceInput = parsePreferences(undefined),
 ): ScoredRecommendation[] {
   const cleaned = recommendations
     .map((item) => ({
@@ -901,7 +928,9 @@ function normalizeRecommendations(
     }
   }
 
-  const scored = buildRecommendationScores(allItems, semanticScoreByTool, userScoreByTool).sort((a, b) => b.finalScore - a.finalScore)
+  const scored = buildRecommendationScores(allItems, semanticScoreByTool, userScoreByTool, preferences).sort(
+    (a, b) => b.finalScore - a.finalScore,
+  )
   const rankerAdjusted = applyRankerExperimentBoost(scored, ranker, scenario)
   const diversified = applyDiversityConstraint(rankerAdjusted, DIVERSITY_TAG_LIMIT)
   return maybeInjectExplorationCandidate(diversified, rankerAdjusted).slice(0, 3)
@@ -916,6 +945,7 @@ function toResponseItems(scored: ScoredRecommendation[], debug: boolean): Recomm
     semantic_score: Number(entry.semanticScore.toFixed(4)),
     user_score: Number(entry.userScore.toFixed(4)),
     business_score: Number(entry.businessScore.toFixed(4)),
+    preference_score: Number(entry.preferenceScore.toFixed(4)),
     final_score: Number(entry.finalScore.toFixed(4)),
   })) as RecommendItem[]
 }
@@ -946,6 +976,53 @@ function isRecommendationLocaleMatch(recommendations: RecommendItem[], locale: S
 
 function normalizeToolId(raw: string): string {
   return raw.trim()
+}
+
+function parsePreferences(raw: RecommendRequest["preferences"]): UserPreferenceInput {
+  return {
+    pricing: raw?.pricing === "free" || raw?.pricing === "paid" ? raw.pricing : "any",
+    chineseFirst: raw?.chineseFirst === true,
+    platforms: {
+      web: raw?.platforms?.web === true,
+      mobile: raw?.platforms?.mobile === true,
+      desktop: raw?.platforms?.desktop === true,
+    },
+  }
+}
+
+function getPreferenceScore(item: RecommendItem, preferences: UserPreferenceInput): number {
+  const normalizedTags = normalizeTags(item.tags, item.name)
+  const combined = `${item.name} ${item.desc} ${item.reason} ${normalizedTags.join(" ")}`.toLowerCase()
+  let score = 0
+
+  if (preferences.pricing === "free") {
+    if (normalizedTags.includes("免费可用") || combined.includes("free") || combined.includes("免费")) score += 0.6
+    else score -= 0.2
+  } else if (preferences.pricing === "paid") {
+    if (normalizedTags.includes("付费为主") || combined.includes("paid") || combined.includes("付费")) score += 0.55
+  }
+
+  if (preferences.chineseFirst) {
+    if (normalizedTags.includes("中文友好") || combined.includes("中文") || combined.includes("chinese")) score += 0.45
+    else score -= 0.1
+  }
+
+  const hasPlatformPreference = preferences.platforms.web || preferences.platforms.mobile || preferences.platforms.desktop
+  if (hasPlatformPreference) {
+    const platformMatchScore =
+      (preferences.platforms.web && (combined.includes("web") || combined.includes("browser") || /^https?:\/\//.test(item.link))
+        ? 0.2
+        : 0) +
+      (preferences.platforms.mobile && (combined.includes("mobile") || combined.includes("ios") || combined.includes("android"))
+        ? 0.2
+        : 0) +
+      (preferences.platforms.desktop && (combined.includes("desktop") || combined.includes("mac") || combined.includes("windows"))
+        ? 0.2
+        : 0)
+    score += platformMatchScore
+  }
+
+  return Math.max(0, Math.min(1, score))
 }
 
 function isNonNullable<T>(value: T | null | undefined): value is T {
@@ -1049,6 +1126,7 @@ export async function POST(request: Request) {
   }
   const safeQuery = query.replace(/[\u0000-\u001F\u007F]/g, " ").slice(0, 1000)
   const scenario = inferScenario(safeQuery)
+  const preferences = parsePreferences(body?.preferences)
   const requestId = `rec_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
   const responseHeaders = {
     "x-recommend-ranker": ranker,
@@ -1079,6 +1157,7 @@ export async function POST(request: Request) {
             userScoreByTool,
             ranker,
             scenario,
+            preferences,
           ).slice(0, 3),
           debug,
         ),
@@ -1117,6 +1196,7 @@ export async function POST(request: Request) {
               userScoreByTool,
               ranker,
               scenario,
+              preferences,
             ).slice(0, 3),
             debug,
           ),
@@ -1135,6 +1215,7 @@ export async function POST(request: Request) {
         userScoreByTool,
         ranker,
         scenario,
+        preferences,
       )
       if (normalized.length > 0) {
         return NextResponse.json(toResponseItems(normalized.slice(0, 3), debug), { headers: responseHeaders })
@@ -1151,6 +1232,7 @@ export async function POST(request: Request) {
           userScoreByTool,
           ranker,
           scenario,
+          preferences,
         ).slice(0, 3),
         debug,
       ),
@@ -1165,7 +1247,16 @@ export async function POST(request: Request) {
     if (!apiKey) {
       return NextResponse.json(
         toResponseItems(
-          normalizeRecommendations(buildFallbackRecommendations(safeQuery, locale), safeQuery, locale, new Map(), new Map(), ranker, scenario).slice(0, 3),
+          normalizeRecommendations(
+            buildFallbackRecommendations(safeQuery, locale),
+            safeQuery,
+            locale,
+            new Map(),
+            new Map(),
+            ranker,
+            scenario,
+            preferences,
+          ).slice(0, 3),
           debug,
         ),
         { headers: responseHeaders },
@@ -1213,6 +1304,7 @@ export async function POST(request: Request) {
             new Map(),
             ranker,
             scenario,
+            preferences,
           ).slice(0, 3),
           debug,
         ),
@@ -1235,6 +1327,7 @@ export async function POST(request: Request) {
       new Map(),
       ranker,
       scenario,
+      preferences,
     )
     if (!isRecommendationLocaleMatch(recommendations.map((item) => item.item), locale)) {
       const retryResponse = await fetch(ZHIPU_API_URL, {
@@ -1274,6 +1367,7 @@ export async function POST(request: Request) {
             new Map(),
             ranker,
             scenario,
+            preferences,
           )
         }
       }
@@ -1284,7 +1378,16 @@ export async function POST(request: Request) {
     console.error("Error in /api/recommend fallback:", error)
     return NextResponse.json(
       toResponseItems(
-        normalizeRecommendations(buildFallbackRecommendations(safeQuery, locale), safeQuery, locale, new Map(), new Map(), ranker, scenario).slice(0, 3),
+        normalizeRecommendations(
+          buildFallbackRecommendations(safeQuery, locale),
+          safeQuery,
+          locale,
+          new Map(),
+          new Map(),
+          ranker,
+          scenario,
+          preferences,
+        ).slice(0, 3),
         debug,
       ),
       { headers: responseHeaders },
