@@ -64,6 +64,13 @@ type QuickSceneConfig = {
   order: number
 }
 
+
+type DisplayRecommendItem = RecommendItem & {
+  priceRange: string
+  platform: string
+  languageSupport: string
+}
+
 const QUICK_SCENE_ICON_MAP: Record<QuickSceneConfig["icon"], typeof Code2> = {
   code: Code2,
   presentation: Presentation,
@@ -210,6 +217,15 @@ export default function Home() {
     })
     return next
   }, [favoriteSortMode, favorites, locale])
+  const getToolDisplayInfo = (item: RecommendItem): Pick<DisplayRecommendItem, "priceRange" | "platform" | "languageSupport"> => {
+    const unknownLabel = locale === "zh" ? "未知" : "Unknown"
+    return {
+      priceRange: item.priceRange?.trim() || unknownLabel,
+      platform: item.platform?.trim() || unknownLabel,
+      languageSupport: item.languageSupport?.trim() || unknownLabel,
+    }
+  }
+
   const filteredResults = useMemo(() => {
     return results.filter((item) => {
       const text = `${item.name} ${item.desc} ${item.reason} ${(item.tags ?? []).join(" ")}`.toLowerCase()
