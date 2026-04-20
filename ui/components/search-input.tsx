@@ -15,6 +15,10 @@ interface SearchInputProps {
   historySuggestions?: string[]
   historyTitle?: string
   onSuggestionClick?: (query: string) => void
+  helperText?: string
+  sampleQueries?: string[]
+  sampleTitle?: string
+  onSampleQueryClick?: (query: string) => void
 }
 
 export function SearchInput({
@@ -28,6 +32,10 @@ export function SearchInput({
   historySuggestions = [],
   historyTitle = "",
   onSuggestionClick,
+  helperText = "",
+  sampleQueries = [],
+  sampleTitle = "",
+  onSampleQueryClick,
 }: SearchInputProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [isFocused, setIsFocused] = useState(false)
@@ -57,8 +65,13 @@ export function SearchInput({
     setIsFocused(false)
   }
 
+  const handleSampleQuerySelect = (sampleQuery: string) => {
+    onSampleQueryClick?.(sampleQuery)
+    inputRef.current?.focus()
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="w-full max-w-2xl">
+    <form onSubmit={handleSubmit} className="w-full max-w-2xl space-y-3">
       <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -112,6 +125,22 @@ export function SearchInput({
           )}
         </Button>
       </div>
+      {helperText && <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">{helperText}</p>}
+      {sampleQueries.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {sampleTitle && <span className="text-xs text-muted-foreground sm:text-sm">{sampleTitle}</span>}
+          {sampleQueries.map((sampleQuery) => (
+            <button
+              key={sampleQuery}
+              type="button"
+              onClick={() => handleSampleQuerySelect(sampleQuery)}
+              className="rounded-full border border-border/70 bg-muted/30 px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted sm:text-sm"
+            >
+              {sampleQuery}
+            </button>
+          ))}
+        </div>
+      )}
     </form>
   )
 }
