@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Heart, Search } from "lucide-react"
+import { AudioWaveform, Code2, Heart, Image, Languages, PenTool, Presentation, Search, Video, BarChart3 } from "lucide-react"
 import { signIn, signOut, useSession } from "next-auth/react"
 import { useLocale, useTranslations } from "next-intl"
 import { SearchInput } from "@/components/search-input"
@@ -16,6 +16,7 @@ import type { RecommendItem } from "@/lib/recommend"
 import { cn } from "@/lib/utils"
 import { sanitizeFavoriteItem, type FavoriteItem } from "@/lib/favorites-store"
 import { track } from "@/lib/track"
+import quickScenesConfig from "@/data/quick-scenes.json"
 
 type SearchHistoryItem = {
   query: string
@@ -28,6 +29,25 @@ type HomeFilters = {
   beginner: boolean
   pro: boolean
   chinese: boolean
+}
+
+type QuickSceneConfig = {
+  id: string
+  icon: "code" | "presentation" | "image" | "pen" | "video" | "chart" | "audio" | "languages"
+  presetQuery: string
+  languageKey: string
+  order: number
+}
+
+const QUICK_SCENE_ICON_MAP: Record<QuickSceneConfig["icon"], typeof Code2> = {
+  code: Code2,
+  presentation: Presentation,
+  image: Image,
+  pen: PenTool,
+  video: Video,
+  chart: BarChart3,
+  audio: AudioWaveform,
+  languages: Languages,
 }
 
 const HISTORY_STORAGE_KEY = "ai_tool_picker_history"
@@ -61,14 +81,18 @@ export default function Home() {
   const locale = useLocale()
   const { data: session, status: sessionStatus } = useSession()
   const isLoggedIn = sessionStatus === "authenticated"
-  const categories = [
-    t("home.categories.code"),
-    t("home.categories.ppt"),
-    t("home.categories.draw"),
-    t("home.categories.write"),
-  ] as const
+  const quickScenes = useMemo(
+    () =>
+      [...(quickScenesConfig as QuickSceneConfig[])]
+        .sort((a, b) => a.order - b.order)
+        .map((scene) => ({
+          ...scene,
+          label: t(scene.languageKey),
+        })),
+    [t],
+  )
   const [query, setQuery] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState<(typeof categories)[number] | null>(null)
+  const [selectedQuickScene, setSelectedQuickScene] = useState<string | null>(null)
   const [results, setResults] = useState<RecommendItem[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
@@ -134,7 +158,15 @@ export default function Home() {
       return true
     })
   }, [activeFilters, results])
-  const getMatchedCategory = (value: string) => categories.find((category) => category === value) ?? null
+  const getMatchedQuickSceneId = (value: string) => {
+    const normalizedValue = value.trim().toLowerCase()
+    return (
+      quickScenes.find(
+        (scene) =>
+          scene.label.trim().toLowerCase() === normalizedValue || scene.presetQuery.trim().toLowerCase() === normalizedValue,
+      )?.id ?? null
+    )
+  }
   const userNameInitial = (session?.user?.name ?? session?.user?.email ?? "U").charAt(0).toUpperCase()
 
   useEffect(() => {
@@ -341,29 +373,48 @@ export default function Home() {
     }
   }
 
-  const handleCategoryClick = (category: (typeof categories)[number]) => {
-    setSelectedCategory(category)
-    setQuery(category)
-    void handleSearch(category)
+  const handleQuickSceneClick = (sceneId: string) => {
+    const selectedScene = quickScenes.find((scene) => scene.id === sceneId)
+    if (!selectedScene) {
+      return
+    }
+    setSelectedQuickScene(selectedScene.id)
+    setQuery(selectedScene.presetQuery)
+    setError("")
+
+    void track({
+      action: "click",
+      toolId: `scene:${selectedScene.id}`,
+      metadata: {
+        source: "quick_scene",
+        locale,
+        languageKey: selectedScene.languageKey,
+        order: selectedScene.order,
+        presetQuery: selectedScene.presetQuery,
+      },
+    }).catch(() => {})
   }
 
   const handleQueryChange = (value: string) => {
     setQuery(value)
-    if (selectedCategory && value !== selectedCategory) {
-      setSelectedCategory(null)
+    if (selectedQuickScene) {
+      const matchedSceneId = getMatchedQuickSceneId(value)
+      if (matchedSceneId !== selectedQuickScene) {
+        setSelectedQuickScene(null)
+      }
     }
   }
 
   const handleHistoryClick = (historyQuery: string) => {
     setQuery(historyQuery)
-    setSelectedCategory(getMatchedCategory(historyQuery))
+    setSelectedQuickScene(getMatchedQuickSceneId(historyQuery))
     setError("")
     void handleSearch(historyQuery)
   }
 
   const handleSampleQueryClick = (sampleQuery: string) => {
     setQuery(sampleQuery)
-    setSelectedCategory(getMatchedCategory(sampleQuery))
+    setSelectedQuickScene(getMatchedQuickSceneId(sampleQuery))
     setError("")
     void handleSearch(sampleQuery)
   }
@@ -524,20 +575,26 @@ export default function Home() {
         {/* 分类快捷入口 + 搜索输入 */}
         <div className="w-full max-w-2xl flex flex-col gap-4">
           <div className="flex flex-wrap gap-2">
-            {categories.map((category) => (
+            {quickScenes.map((scene) => {
+              const SceneIcon = QUICK_SCENE_ICON_MAP[scene.icon]
+              return (
               <button
-                key={category}
+                key={scene.id}
                 type="button"
-                onClick={() => handleCategoryClick(category)}
+                onClick={() => handleQuickSceneClick(scene.id)}
                 className={`rounded-full border px-4 py-2 text-sm transition-colors ${
-                  selectedCategory === category
+                  selectedQuickScene === scene.id
                     ? "border-foreground bg-foreground text-background"
                     : "border-border bg-muted text-foreground hover:bg-muted/70"
                 }`}
               >
-                {category}
+                <span className="inline-flex items-center gap-1.5">
+                  <SceneIcon className="size-3.5" aria-hidden="true" />
+                  <span>{scene.label}</span>
+                </span>
               </button>
-            ))}
+              )
+            })}
           </div>
 
           <SearchInput
