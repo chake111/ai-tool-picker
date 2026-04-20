@@ -64,6 +64,14 @@
     "resultsTitle": "推荐结果",
     "resultsCount": "({count})",
     "resultsSubtitle": "本次搜索返回",
+    "pagination": {
+      "navAria": "结果分页导航",
+      "previous": "上一页",
+      "next": "下一页",
+      "previousAria": "转到上一页",
+      "nextAria": "转到下一页",
+      "pageAria": "转到第 {page} 页"
+    },
     "queryFallback": "关键词",
     "noResults": "本次搜索没有匹配结果",
     "emptyHint": "试试输入：做PPT、写文案、画图、写代码...",
