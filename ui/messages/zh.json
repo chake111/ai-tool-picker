@@ -32,7 +32,9 @@
     "history": {
       "title": "历史搜索",
       "clear": "清空历史",
-      "empty": "暂无最近搜索"
+      "empty": "暂无历史，试试输入需求",
+      "reuse": "点击复用",
+      "deleteOne": "删除历史：{query}"
     },
     "quickScenes": {
       "items": {
