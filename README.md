@@ -30,6 +30,39 @@ AI Tool Picker helps you quickly choose the best AI tool for your task — wheth
 
 Next.js · TypeScript · Tailwind CSS · NextAuth · PostgreSQL · GLM-4-Flash
 
+
+## Google 登录配置 / Google Sign-In setup
+
+如果你启用了 NextAuth 的 Google 登录，请先在 `ui/.env.example` 对应的环境变量中完成配置（实际部署请在 `.env.local`、Vercel 或 CI Secret 中填写真实值，不要提交真实密钥）。
+
+### 必填环境变量
+
+- `GOOGLE_CLIENT_ID=`
+- `GOOGLE_CLIENT_SECRET=`
+- `NEXTAUTH_URL=`（生产环境必须是完整可访问域名，例如 `https://your-domain.com`）
+- `NEXTAUTH_SECRET=`
+
+### Google 回调地址（NextAuth）
+
+Google OAuth 的回调路径固定为：
+
+- `{NEXTAUTH_URL}/api/auth/callback/google`
+
+示例：
+
+- 本地开发：`http://localhost:3000/api/auth/callback/google`
+- 生产环境：`https://xxx.vercel.app/api/auth/callback/google`
+
+> 重要：Google Cloud Console 中 **Authorized redirect URIs** 必须与上面实际使用的回调地址逐字符一致（包括协议 `http/https`、端口、路径，以及是否带尾部斜杠）。任意一个字符不同都可能导致登录失败。
+
+### 常见错误排查
+
+1. `redirect_uri_mismatch`
+   - 第一步：在浏览器地址栏（或开发者工具 Network）查看请求里实际发送的 `redirect_uri`。
+   - 第二步：逐字符对照 Google Cloud Console 的 **Authorized redirect URIs**。
+   - 第三步：确认 `NEXTAUTH_URL` 是否与当前访问域名一致（本地/预览/生产不要混用）。
+   - 第四步：确认是否误加或漏掉尾部斜杠、端口号或协议。
+
 ## 推荐实验参数 / Recommendation experiment controls
 
 `/api/recommend` 支持通过请求体传入 `ranker` 参数做灰度与 A/B：
