@@ -18,10 +18,10 @@
   },
   "home": {
     "title": "Let me pick AI for you",
-    "subtitle": "Tell me what you want to do and I will recommend the most suitable AI tools",
-    "heroHint": "Describe your goal in one sentence and get 3-6 executable tool recommendations with reasons.",
+    "subtitle": "Describe your goal and get decision-ready AI tool recommendations",
+    "heroHint": "Use one sentence to describe the job to be done. We return 3-6 options and explain why they fit.",
     "searchPlaceholder": "For example: I need a fundraising pitch deck",
-    "searchHelper": "The more specific your input, the better the picks. You can refine by budget, language, and platform.",
+    "searchHelper": "Add constraints like budget, language, and platform to get more realistic recommendations.",
     "searchEmptyPrompt": "Please enter your needs",
     "searchAction": "Pick for me",
     "examples": "Input examples: \"I need a pitch deck for fundraising\" or \"Help me draft short video scripts.\" Expected result: tools by scenario with why they fit and official links.",
@@ -81,9 +81,9 @@
     "noResults": "No results for this search",
     "emptyHint": "Each result includes fit reasons, who it is best for, caveats, and next actions.",
     "popularTools": "Popular tools",
-    "trustNote": "Built for beginners, students, and operators who need clear and practical AI tool decisions.",
-    "quickScenesTitle": "Or start from common scenarios",
-    "resultsPreviewSubtitle": "Results are decision-ready recommendations, not just a generic tool list.",
+    "trustNote": "Built for beginners, students, and operators who need clear and practical tool decisions.",
+    "quickScenesTitle": "Start from common scenarios, or type your own task directly",
+    "resultsPreviewSubtitle": "Results are structured by fit score, rationale, and next actions to support faster decisions.",
     "stats": {
       "countLabel": "Output size",
       "countValue": "3-6 shortlisted tools each search",
@@ -224,7 +224,7 @@
   },
   "resultsPage": {
     "title": "Your decision-ready results",
-    "summary": "Start with top-fit tools, then narrow down using “Best for” and “Caveats”.",
+    "summary": "Review fit score first, then weigh rationale and caveats before saving, comparing, or trying a tool.",
     "resultCount": "Available options: {count}",
     "matchScore": "Fit score",
     "reputation": "Estimated reputation",
@@ -233,6 +233,8 @@
     "caveats": "Caveats",
     "compareReady": "Ready to compare",
     "inCompare": "Added to compare",
-    "workspaceEyebrow": "Decision workspace"
+    "workspaceEyebrow": "Decision workspace",
+    "capabilities": "Key capabilities",
+    "nextAction": "Next step: open the official site to verify pricing, language, and platform before comparing."
   }
 }

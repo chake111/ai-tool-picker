@@ -21,6 +21,7 @@ interface SearchInputProps {
   onSampleQueryClick?: (query: string) => void
   focusSignal?: number
   rotatingPlaceholders?: string[]
+  rotatingPrefix?: string
 }
 
 export function SearchInput({
@@ -40,6 +41,7 @@ export function SearchInput({
   onSampleQueryClick,
   focusSignal = 0,
   rotatingPlaceholders = [],
+  rotatingPrefix = "",
 }: SearchInputProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [isFocused, setIsFocused] = useState(false)
@@ -88,7 +90,10 @@ export function SearchInput({
     inputRef.current?.focus()
   }
 
-  const computedPlaceholder = rotatingPlaceholders.length > 0 ? `例如：${rotatingPlaceholders[placeholderIndex]}` : placeholder
+  const computedPlaceholder =
+    rotatingPlaceholders.length > 0
+      ? `${rotatingPrefix}${rotatingPlaceholders[placeholderIndex]}`
+      : placeholder
 
   return (
     <form onSubmit={handleSubmit} className="w-full space-y-4">
@@ -131,7 +136,7 @@ export function SearchInput({
             type="submit"
             size="lg"
             disabled={isLoading}
-            className="h-14 w-full rounded-xl px-6 text-base font-semibold text-primary-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:translate-y-px focus-visible:ring-2 focus-visible:ring-primary/50 sm:h-16 sm:w-auto"
+            className="app-cta-primary h-14 w-full px-6 text-base font-semibold text-primary-foreground transition-all hover:-translate-y-0.5 hover:shadow-md active:translate-y-px focus-visible:ring-2 focus-visible:ring-primary/50 sm:h-16 sm:w-auto"
           >
             {isLoading ? (
               <>
@@ -156,7 +161,7 @@ export function SearchInput({
               key={sampleQuery}
               type="button"
               onClick={() => handleSampleQuerySelect(sampleQuery)}
-              className="rounded-full border border-border/70 bg-muted/35 px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted sm:text-sm"
+              className="app-tag transition-colors hover:bg-muted sm:text-sm"
             >
               {sampleQuery}
             </button>
