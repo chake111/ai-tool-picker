@@ -5,7 +5,6 @@ import { ExternalLink, Minus, X } from "lucide-react"
 import { useTranslations } from "next-intl"
 import type { RecommendItem } from "@/lib/recommend"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import {
   Table,
   TableBody,
@@ -16,21 +15,20 @@ import {
 } from "@/components/ui/table"
 
 type ComparePanelProps = {
-  tools: Array<RecommendItem & { recommendationRank: number }>
+  tools: Array<
+    RecommendItem & {
+      recommendationRank: number
+      priceRange: string
+      platform: string
+      languageSupport: string
+    }
+  >
   onRemove: (toolName: string) => void
   onClear: () => void
 }
 
-type SortMode = "recommendation" | "ai" | "audience"
+type SortMode = "recommendation" | "name"
 type ViewMode = "table" | "list"
-
-const AI_KEYWORD_REGEX = /(?:\bai\b|人工智能|大模型|生成式|llm|gpt|copilot|智能)/gi
-
-function getAiFeatureScore(tool: RecommendItem): number {
-  const source = `${tool.desc} ${tool.reason} ${tool.tags.join(" ")}`
-  const matches = source.match(AI_KEYWORD_REGEX)
-  return matches?.length ?? 0
-}
 
 export function ComparePanel({ tools, onRemove, onClear }: ComparePanelProps) {
   const t = useTranslations("compare")
@@ -50,23 +48,16 @@ export function ComparePanel({ tools, onRemove, onClear }: ComparePanelProps) {
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [])
 
-  const aiScoreByTool = useMemo(() => {
-    return new Map(tools.map((tool) => [tool.name, getAiFeatureScore(tool)]))
-  }, [tools])
-
   const sortedTools = useMemo(() => {
     const next = [...tools]
     next.sort((a, b) => {
-      if (sortMode === "ai") {
-        return (aiScoreByTool.get(b.name) ?? 0) - (aiScoreByTool.get(a.name) ?? 0)
-      }
-      if (sortMode === "audience") {
-        return b.tags.length - a.tags.length
+      if (sortMode === "name") {
+        return a.name.localeCompare(b.name, "zh-Hans-CN")
       }
       return a.recommendationRank - b.recommendationRank
     })
     return next
-  }, [aiScoreByTool, sortMode, tools])
+  }, [sortMode, tools])
 
   if (tools.length === 0) {
     return null
@@ -113,8 +104,7 @@ export function ComparePanel({ tools, onRemove, onClear }: ComparePanelProps) {
               aria-label={t("sortAria")}
             >
               <option value="recommendation">{t("sort.recommendation")}</option>
-              <option value="ai">{t("sort.ai")}</option>
-              <option value="audience">{t("sort.audience")}</option>
+              <option value="name">{t("sort.name")}</option>
             </select>
             <Button
               type="button"
@@ -151,8 +141,9 @@ export function ComparePanel({ tools, onRemove, onClear }: ComparePanelProps) {
                   <TableRow>
                     <TableHead>{t("table.name")}</TableHead>
                     <TableHead>{t("table.desc")}</TableHead>
-                    <TableHead>{t("table.ai")}</TableHead>
-                    <TableHead>{t("table.audience")}</TableHead>
+                    <TableHead>{t("table.priceRange")}</TableHead>
+                    <TableHead>{t("table.platform")}</TableHead>
+                    <TableHead>{t("table.languageSupport")}</TableHead>
                     <TableHead className="text-right">{t("table.site")}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -166,18 +157,9 @@ export function ComparePanel({ tools, onRemove, onClear }: ComparePanelProps) {
                       >
                         {tool.desc}
                       </TableCell>
-                      <TableCell className="max-w-[240px] whitespace-normal text-foreground">
-                        {tool.reason}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {tool.tags.map((tag) => (
-                            <Badge key={`${tool.name}-${tag}`} variant="outline">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
-                      </TableCell>
+                      <TableCell>{tool.priceRange}</TableCell>
+                      <TableCell>{tool.platform}</TableCell>
+                      <TableCell>{tool.languageSupport}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           <Button asChild size="sm">
@@ -221,12 +203,10 @@ export function ComparePanel({ tools, onRemove, onClear }: ComparePanelProps) {
                       {tool.desc}
                     </p>
                     <p className="mt-2 text-xs text-foreground">{tool.reason}</p>
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {tool.tags.map((tag) => (
-                        <Badge key={`${tool.name}-list-${tag}`} variant="outline">
-                          {tag}
-                        </Badge>
-                      ))}
+                    <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                      <p>{t("table.priceRange")}: {tool.priceRange}</p>
+                      <p>{t("table.platform")}: {tool.platform}</p>
+                      <p>{t("table.languageSupport")}: {tool.languageSupport}</p>
                     </div>
                     <Button asChild className="mt-3 w-full" size="sm">
                       <a href={tool.link} target="_blank" rel="noopener noreferrer">
