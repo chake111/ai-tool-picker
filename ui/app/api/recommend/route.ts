@@ -816,6 +816,7 @@ async function getAuthenticatedUserBehavior(userId: string): Promise<UserBehavio
       action: true,
       toolId: true,
       keyword: true,
+      metadata: true,
       createdAt: true,
     },
   })
@@ -831,6 +832,14 @@ async function getAuthenticatedUserBehavior(userId: string): Promise<UserBehavio
       if (event.action === "favorite") {
         const toolId = event.toolId?.trim()
         if (!toolId) return null
+        const operation =
+          event.metadata &&
+          typeof event.metadata === "object" &&
+          !Array.isArray(event.metadata) &&
+          "operation" in event.metadata
+            ? event.metadata.operation
+            : null
+        if (operation === "remove") return null
         return { type: "favorite", toolId: normalizeToolId(toolId), timestamp } satisfies UserBehaviorEvent
       }
       const toolId = event.toolId?.trim()

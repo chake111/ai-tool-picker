@@ -35,6 +35,7 @@ export async function GET(request: Request) {
         action: true,
         toolId: true,
         keyword: true,
+        metadata: true,
         userId: true,
         createdAt: true,
       },

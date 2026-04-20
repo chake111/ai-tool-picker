@@ -10,6 +10,7 @@ type TrackPayload = {
   page?: string
   toolId?: string
   keyword?: string
+  operation?: "add" | "remove"
 }
 
 const VALID_EVENTS = new Set<TrackPayload["event"]>(["search", "favorite", "click"])
@@ -28,8 +29,7 @@ function isValidPayload(payload: unknown): payload is TrackPayload {
     return (
       typeof candidate.toolId === "string" &&
       candidate.toolId.trim().length > 0 &&
-      typeof candidate.keyword === "string" &&
-      candidate.keyword.trim().length > 0
+      (candidate.operation === "add" || candidate.operation === "remove")
     )
   }
   if (candidate.event === "click") {
@@ -60,6 +60,7 @@ export async function POST(request: Request) {
     action: payload.event,
     toolId: payload.toolId ?? null,
     keyword: payload.keyword ?? null,
+    metadata: payload.event === "favorite" ? { operation: payload.operation } : undefined,
     userId,
   }
 
@@ -72,6 +73,7 @@ export async function POST(request: Request) {
       action: eventRecord.action,
       hasToolId: Boolean(eventRecord.toolId),
       hasKeyword: Boolean(eventRecord.keyword),
+      hasMetadata: Boolean(eventRecord.metadata),
       isAuthenticated: Boolean(userId),
       error: error instanceof Error ? error.message : "unknown_error",
     })
@@ -83,6 +85,7 @@ export async function POST(request: Request) {
     action: eventRecord.action,
     hasToolId: Boolean(eventRecord.toolId),
     hasKeyword: Boolean(eventRecord.keyword),
+    hasMetadata: Boolean(eventRecord.metadata),
     isAuthenticated: Boolean(userId),
   })
   return NextResponse.json({ ok: true })
