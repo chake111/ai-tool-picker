@@ -201,6 +201,14 @@
     "sort": {
       "confidence": "按置信度",
       "name": "按名称"
-    }
+    },
+    "refineInputLabel": "结果精修输入",
+    "refineInputPlaceholder": "继续补充需求（例如：预算有限、中文界面）",
+    "refineSubmit": "Refine"
+  },
+  "resultsStates": {
+    "loading": "正在更新推荐结果...",
+    "empty": "暂时没有找到可推荐的工具，试试换个描述。",
+    "noMatch": "当前筛选条件下无匹配结果，请调整筛选或清空条件。"
   }
 }

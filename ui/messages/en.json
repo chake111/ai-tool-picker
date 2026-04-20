@@ -201,6 +201,14 @@
     "sort": {
       "confidence": "By confidence",
       "name": "By name"
-    }
+    },
+    "refineInputLabel": "Refine query input",
+    "refineInputPlaceholder": "Add more constraints (e.g. low budget, Chinese UI)",
+    "refineSubmit": "Refine"
+  },
+  "resultsStates": {
+    "loading": "Refreshing recommendations...",
+    "empty": "No recommendations yet. Try another query.",
+    "noMatch": "No matches for current filters. Adjust filters or clear conditions."
   }
 }
