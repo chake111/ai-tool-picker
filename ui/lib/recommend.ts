@@ -4,6 +4,9 @@ export type RecommendItem = {
   reason: string
   link: string
   tags: string[]
+  priceRange?: string
+  platform?: string
+  languageSupport?: string
 }
 
 export type ToolEmbeddingRecord = {

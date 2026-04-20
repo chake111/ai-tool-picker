@@ -116,8 +116,7 @@
     "sortAria": "Compare sorting",
     "sort": {
       "recommendation": "By recommendation",
-      "ai": "By AI features",
-      "audience": "By audience"
+      "name": "By name"
     },
     "view": {
       "table": "Table",
@@ -125,9 +124,10 @@
     },
     "table": {
       "name": "Name",
-      "desc": "Description",
-      "ai": "AI features",
-      "audience": "Audience",
+      "desc": "Summary",
+      "priceRange": "Price range",
+      "platform": "Platform",
+      "languageSupport": "Language support",
       "site": "Website"
     },
     "actions": {
@@ -138,6 +138,20 @@
       "visitSite": "Visit website",
       "remove": "Remove",
       "clear": "Clear compare"
+    }
+  },
+  "details": {
+    "view": "View details",
+    "fields": {
+      "priceRange": "Price range",
+      "platform": "Platform",
+      "languageSupport": "Language support"
+    },
+    "placeholder": {
+      "favoriteTitle": "Favorite data slot (placeholder)",
+      "favoriteDesc": "This area will show favorite count and trend in a future release.",
+      "reviewTitle": "User review data slot (placeholder)",
+      "reviewDesc": "This area will show ratings, review summary, and representative feedback."
     }
   },
   "errors": {
