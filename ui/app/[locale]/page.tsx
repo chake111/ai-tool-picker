@@ -366,12 +366,25 @@ export default function Home() {
     setLastSearchedQuery(normalizedQuery)
 
     try {
+      const localHistorySnapshot = [{ query: normalizedQuery, timestamp: Date.now() }, ...history]
+      const requestBody = {
+        query: normalizedQuery,
+        locale: locale === "zh" ? "zh" : "en",
+        ...(!isLoggedIn
+          ? {
+              localBehavior: {
+                history: localHistorySnapshot.slice(0, 10).map((item) => ({ query: item.query, timestamp: item.timestamp })),
+                favorites: favorites.slice(0, 10).map((item) => ({ toolId: item.toolId, name: item.name })),
+              },
+            }
+          : {}),
+      }
       const response = await fetch("/api/recommend", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ query: normalizedQuery, locale: locale === "zh" ? "zh" : "en" }),
+        body: JSON.stringify(requestBody),
       })
 
       if (!response.ok) {

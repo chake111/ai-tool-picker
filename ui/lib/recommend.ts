@@ -15,15 +15,14 @@ export type ToolEmbeddingRecord = {
 }
 
 export type UserBehaviorEvent = {
-  type: "search" | "favorite"
+  type: "search" | "favorite" | "click"
   timestamp: number
   keyword?: string
   toolId?: string
 }
 
 export type UserBehaviorPayload = {
-  searchKeywords?: string[]
-  favoriteToolIds?: string[]
+  events: UserBehaviorEvent[]
 }
 
 export type UserEmbeddingProfile = {
@@ -40,6 +39,7 @@ export type RankedTool = {
 
 export const USER_BEHAVIOR_WEIGHTS: Record<UserBehaviorEvent["type"], number> = {
   search: 1,
+  click: 2,
   favorite: 3,
 }
 

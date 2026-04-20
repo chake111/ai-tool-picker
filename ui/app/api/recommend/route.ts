@@ -1,16 +1,25 @@
+import { getServerSession } from "next-auth"
 import { NextResponse } from "next/server"
 import type {
   RankedTool,
   RecommendItem,
   ToolEmbeddingRecord,
+  UserBehaviorEvent,
   UserBehaviorPayload,
   UserEmbeddingProfile,
 } from "@/lib/recommend"
+import { authOptions } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
 import { USER_BEHAVIOR_WEIGHTS, cosineSimilarity } from "@/lib/recommend"
 
 type RecommendRequest = {
   query: string
   locale?: string
+  localBehavior?: {
+    history?: Array<{ query?: string; timestamp?: number } | string>
+    favorites?: Array<{ toolId?: string; name?: string }>
+    clicks?: Array<{ toolId?: string; timestamp?: number }>
+  }
 }
 
 type SupportedLocale = "zh" | "en"
@@ -72,6 +81,10 @@ const QUERY_INTENT_REASON_RULES = [
   },
   { keywords: ["写作", "文案", "文章", "创作"], zh: "适合内容创作", en: "well-suited for content creation" },
 ] as const
+const USER_EVENTS_FETCH_LIMIT = 50
+const DECAY_HIGH_WEIGHT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
+const DECAY_LONG_TAIL_MS = 30 * 24 * 60 * 60 * 1000
+const MIN_BEHAVIOR_EVENTS_FOR_PERSONALIZATION = 3
 const PRIORITY_TOOLS = ["chatgpt", "notion ai", "gamma", "tome", "beautiful.ai"] as const
 const TAG_PRIORITY = [
   "新手友好",
@@ -434,23 +447,41 @@ function weightedAverageEmbeddings(inputs: Array<{ embedding: number[]; weight: 
   return sums.map((value) => value / totalWeight)
 }
 
+function getEventTimeDecay(timestamp: number, now = Date.now()): number {
+  const ageMs = Math.max(0, now - timestamp)
+  if (ageMs <= DECAY_HIGH_WEIGHT_WINDOW_MS) return 1
+  if (ageMs >= DECAY_LONG_TAIL_MS) return 0.25
+  const progress = (ageMs - DECAY_HIGH_WEIGHT_WINDOW_MS) / (DECAY_LONG_TAIL_MS - DECAY_HIGH_WEIGHT_WINDOW_MS)
+  return 1 - progress * 0.75
+}
+
 async function buildUserProfileEmbedding(
   payload: UserBehaviorPayload,
   toolEmbeddings: ToolEmbeddingItem[],
 ): Promise<UserEmbeddingProfile | null> {
-  const searchKeywords = (payload.searchKeywords ?? []).map((item) => item.trim()).filter(Boolean)
-  const favoriteToolIds = (payload.favoriteToolIds ?? []).map((item) => item.trim()).filter(Boolean)
-
+  const events = (payload.events ?? [])
+    .filter((event) => Number.isFinite(event.timestamp) && event.timestamp > 0)
+    .sort((a, b) => b.timestamp - a.timestamp)
   const vectors: Array<{ embedding: number[]; weight: number }> = []
-  for (const keyword of searchKeywords) {
-    vectors.push({ embedding: await createEmbedding(keyword), weight: USER_BEHAVIOR_WEIGHTS.search })
-  }
-
   const toolMap = new Map(toolEmbeddings.map((item) => [item.tool.name.toLowerCase(), item.embedding]))
-  for (const toolId of favoriteToolIds) {
+  for (const event of events) {
+    const baseWeight = USER_BEHAVIOR_WEIGHTS[event.type]
+    const decayWeight = getEventTimeDecay(event.timestamp)
+    const finalWeight = baseWeight * decayWeight
+    if (finalWeight <= 0) continue
+
+    if (event.type === "search") {
+      const keyword = event.keyword?.trim()
+      if (!keyword) continue
+      vectors.push({ embedding: await createEmbedding(keyword), weight: finalWeight })
+      continue
+    }
+
+    const toolId = event.toolId?.trim()
+    if (!toolId) continue
     const embedding = toolMap.get(toolId.toLowerCase())
     if (!embedding) continue
-    vectors.push({ embedding, weight: USER_BEHAVIOR_WEIGHTS.favorite })
+    vectors.push({ embedding, weight: finalWeight })
   }
 
   const embedding = weightedAverageEmbeddings(vectors)
@@ -459,7 +490,7 @@ async function buildUserProfileEmbedding(
   return {
     userId: "session-user",
     embedding,
-    eventCount: searchKeywords.length + favoriteToolIds.length,
+    eventCount: events.length,
     updatedAt: Date.now(),
   }
 }
@@ -889,6 +920,85 @@ function isRecommendationLocaleMatch(recommendations: RecommendItem[], locale: S
   return dominant === locale
 }
 
+function normalizeToolId(raw: string): string {
+  return raw.trim()
+}
+
+function isNonNullable<T>(value: T | null | undefined): value is T {
+  return value != null
+}
+
+async function getAuthenticatedUserBehavior(userId: string): Promise<UserBehaviorEvent[]> {
+  const events = await prisma.userEvent.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    take: USER_EVENTS_FETCH_LIMIT,
+    select: {
+      action: true,
+      toolId: true,
+      keyword: true,
+      createdAt: true,
+    },
+  })
+
+  return events
+    .map((event) => {
+      const timestamp = event.createdAt.getTime()
+      if (event.action === "search") {
+        const keyword = event.keyword?.trim()
+        if (!keyword) return null
+        return { type: "search", keyword, timestamp } satisfies UserBehaviorEvent
+      }
+      if (event.action === "favorite") {
+        const toolId = event.toolId?.trim()
+        if (!toolId) return null
+        return { type: "favorite", toolId: normalizeToolId(toolId), timestamp } satisfies UserBehaviorEvent
+      }
+      const toolId = event.toolId?.trim()
+      if (!toolId) return null
+      return { type: "click", toolId: normalizeToolId(toolId), timestamp } satisfies UserBehaviorEvent
+    })
+    .filter(isNonNullable)
+}
+
+function getAnonymousBehaviorFromBody(localBehavior: RecommendRequest["localBehavior"]): UserBehaviorEvent[] {
+  if (!localBehavior) return []
+  const now = Date.now()
+
+  const searchEvents = (localBehavior.history ?? [])
+    .map((item) => {
+      if (typeof item === "string") {
+        const keyword = item.trim()
+        if (!keyword) return null
+        return { type: "search", keyword, timestamp: now } satisfies UserBehaviorEvent
+      }
+      const keyword = item.query?.trim()
+      if (!keyword) return null
+      const timestamp = Number.isFinite(item.timestamp) && item.timestamp ? item.timestamp : now
+      return { type: "search", keyword, timestamp } satisfies UserBehaviorEvent
+    })
+    .filter(isNonNullable)
+
+  const favoriteEvents = (localBehavior.favorites ?? [])
+    .map((item) => {
+      const toolId = (item.toolId ?? item.name)?.trim()
+      if (!toolId) return null
+      return { type: "favorite", toolId: normalizeToolId(toolId), timestamp: now } satisfies UserBehaviorEvent
+    })
+    .filter(isNonNullable)
+
+  const clickEvents = (localBehavior.clicks ?? [])
+    .map((item) => {
+      const toolId = item.toolId?.trim()
+      if (!toolId) return null
+      const timestamp = Number.isFinite(item.timestamp) && item.timestamp ? item.timestamp : now
+      return { type: "click", toolId: normalizeToolId(toolId), timestamp } satisfies UserBehaviorEvent
+    })
+    .filter(isNonNullable)
+
+  return [...searchEvents, ...favoriteEvents, ...clickEvents].sort((a, b) => b.timestamp - a.timestamp)
+}
+
 export async function POST(request: Request) {
   const body = (await request.json().catch((error) => {
     console.error("Failed to parse request body. Expected JSON body with a query field:", error)
@@ -899,14 +1009,17 @@ export async function POST(request: Request) {
   if (!query) {
     return NextResponse.json({ error: "Invalid query" }, { status: 400 })
   }
-  const userBehavior = body && typeof body === "object" ? (body as RecommendRequest & UserBehaviorPayload) : null
   const safeQuery = query.replace(/[\u0000-\u001F\u007F]/g, " ").slice(0, 1000)
 
   try {
+    const session = await getServerSession(authOptions)
+    const userId = session?.user?.id?.trim()
+    const behaviorEvents = userId ? await getAuthenticatedUserBehavior(userId) : getAnonymousBehaviorFromBody(body?.localBehavior)
+    const userBehavior: UserBehaviorPayload = { events: behaviorEvents }
     const [queryEmbedding, toolEmbeddings] = await Promise.all([createEmbedding(safeQuery), getToolEmbeddings()])
     const topTools = topToolsByCosineSimilarity(queryEmbedding, toolEmbeddings, 3)
 
-    if (userBehavior) {
+    if (userBehavior.events.length >= MIN_BEHAVIOR_EVENTS_FOR_PERSONALIZATION) {
       const userProfile = await buildUserProfileEmbedding(userBehavior, toolEmbeddings)
       if (userProfile) {
         const rankedByUser = rankToolsForUser(
