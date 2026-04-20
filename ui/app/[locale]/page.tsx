@@ -9,6 +9,14 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ComparePanel } from "@/components/compare-panel"
 import { LanguageSwitcher } from "@/components/language-switcher"
@@ -123,7 +131,8 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [history, setHistory] = useState<SearchHistoryItem[]>([])
-  const [compareTools, setCompareTools] = useState<RecommendItem[]>([])
+  const [compareTools, setCompareTools] = useState<DisplayRecommendItem[]>([])
+  const [detailTool, setDetailTool] = useState<DisplayRecommendItem | null>(null)
   const [compareLimitHint, setCompareLimitHint] = useState("")
   const [favorites, setFavorites] = useState<FavoriteItem[]>([])
   const [favoriteSortMode, setFavoriteSortMode] = useState<"name" | "ai" | "scenario">("name")
@@ -209,6 +218,14 @@ export default function Home() {
       return true
     })
   }, [activeFilters, results])
+  const displayResults = useMemo<DisplayRecommendItem[]>(
+    () =>
+      filteredResults.map((item) => ({
+        ...item,
+        ...getToolDisplayInfo(item),
+      })),
+    [filteredResults],
+  )
   const getMatchedQuickSceneId = (value: string) => {
     const normalizedValue = value.trim().toLowerCase()
     return (
@@ -661,7 +678,7 @@ export default function Home() {
 
   const isToolSelected = (toolName: string) => compareTools.some((tool) => tool.name === toolName)
 
-  const handleCompareToggle = (item: RecommendItem, checked: boolean | "indeterminate") => {
+  const handleCompareToggle = (item: DisplayRecommendItem, checked: boolean | "indeterminate") => {
     if (checked === "indeterminate") {
       return
     }
@@ -683,6 +700,34 @@ export default function Home() {
       return [...prev, item]
     })
   }
+  const handleDetailOpen = (item: DisplayRecommendItem) => {
+    setDetailTool(item)
+    void track({
+      action: "impression",
+      toolId: item.name,
+      metadata: {
+        source: "detail_drawer",
+        metric: "detail_view_rate",
+        locale,
+        query: recommendMeta?.query ?? lastSearchedQuery,
+      },
+    }).catch(() => {})
+  }
+
+  useEffect(() => {
+    if (compareTools.length !== 2) return
+    void track({
+      action: "impression",
+      toolId: compareTools.map((tool) => tool.name).join(" vs "),
+      metadata: {
+        source: "compare_panel",
+        metric: "compare_start_rate",
+        selectedCount: compareTools.length,
+        locale,
+        query: recommendMeta?.query ?? lastSearchedQuery,
+      },
+    }).catch(() => {})
+  }, [compareTools, lastSearchedQuery, locale, recommendMeta])
 
   const handleRemoveCompareTool = (toolName: string) => {
     setCompareTools((prev) => prev.filter((tool) => tool.name !== toolName))
@@ -1161,7 +1206,7 @@ export default function Home() {
                    {compareLimitHint}
                  </div>
               )}
-              {filteredResults.map((item) => (
+              {displayResults.map((item) => (
                  <Card
                     key={item.name}
                     className={cn(
@@ -1213,6 +1258,9 @@ export default function Home() {
                             >
                               {isToolSelected(item.name) ? t("compare.added") : t("compare.add")}
                             </Button>
+                            <Button type="button" size="sm" variant="ghost" onClick={() => handleDetailOpen(item)}>
+                              {t("details.view")}
+                            </Button>
                         </div>
                       </div>
                     {Array.isArray(item.tags) && item.tags.length > 0 && (
@@ -1230,6 +1278,11 @@ export default function Home() {
                      <p className="mt-2 text-sm text-muted-foreground" title={item.desc}>
                        {item.desc}
                      </p>
+                     <div className="mt-3 grid grid-cols-1 gap-1 rounded-lg border border-border/70 bg-muted/20 p-3 text-xs text-foreground sm:grid-cols-2">
+                       <p><span className="text-muted-foreground">{t("details.fields.priceRange")}：</span>{item.priceRange}</p>
+                       <p><span className="text-muted-foreground">{t("details.fields.platform")}：</span>{item.platform}</p>
+                       <p className="sm:col-span-2"><span className="text-muted-foreground">{t("details.fields.languageSupport")}：</span>{item.languageSupport}</p>
+                     </div>
                      <p className="mt-3 text-sm text-foreground">{item.reason}</p>
                   <div className="mt-5">
                     <Button asChild className="w-full sm:w-auto">
@@ -1275,6 +1328,58 @@ export default function Home() {
         onRemove={handleRemoveCompareTool}
         onClear={handleClearCompareTools}
       />
+      <Drawer open={!!detailTool} onOpenChange={(open) => !open && setDetailTool(null)}>
+        <DrawerContent>
+          {detailTool && (
+            <>
+              <DrawerHeader>
+                <DrawerTitle>{detailTool.name}</DrawerTitle>
+                <DrawerDescription>{detailTool.desc}</DrawerDescription>
+              </DrawerHeader>
+              <div className="space-y-3 px-4 pb-3 text-sm">
+                <div className="rounded-lg border border-border p-3">
+                  <p><span className="text-muted-foreground">{t("details.fields.priceRange")}：</span>{detailTool.priceRange}</p>
+                  <p><span className="text-muted-foreground">{t("details.fields.platform")}：</span>{detailTool.platform}</p>
+                  <p><span className="text-muted-foreground">{t("details.fields.languageSupport")}：</span>{detailTool.languageSupport}</p>
+                </div>
+                <div className="rounded-lg border border-dashed border-border p-3">
+                  <p className="font-medium">{t("details.placeholder.favoriteTitle")}</p>
+                  <p className="text-xs text-muted-foreground">{t("details.placeholder.favoriteDesc")}</p>
+                </div>
+                <div className="rounded-lg border border-dashed border-border p-3">
+                  <p className="font-medium">{t("details.placeholder.reviewTitle")}</p>
+                  <p className="text-xs text-muted-foreground">{t("details.placeholder.reviewDesc")}</p>
+                </div>
+              </div>
+              <DrawerFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    void track({
+                      action: "favorite",
+                      toolId: detailTool.name,
+                      operation: isToolFavorited(detailTool.name) ? "remove" : "add",
+                      metadata: {
+                        source: "detail_drawer",
+                        metric: "favorite_rate",
+                      },
+                    }).catch(() => {})
+                    handleFavoriteToggle(detailTool)
+                  }}
+                >
+                  {isToolFavorited(detailTool.name) ? t("favorites.remove") : t("favorites.add")}
+                </Button>
+                <Button asChild>
+                  <a href={detailTool.link} target="_blank" rel="noopener noreferrer">
+                    {t("common.visitWebsite")}
+                  </a>
+                </Button>
+              </DrawerFooter>
+            </>
+          )}
+        </DrawerContent>
+      </Drawer>
     </main>
   )
 }

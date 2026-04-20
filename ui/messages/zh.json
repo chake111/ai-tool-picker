@@ -139,8 +139,7 @@
     "sortAria": "对比排序",
     "sort": {
       "recommendation": "按推荐度",
-      "ai": "按 AI 特性",
-      "audience": "按适合人群"
+      "name": "按名称"
     },
     "view": {
       "table": "表格",
@@ -148,9 +147,10 @@
     },
     "table": {
       "name": "名称",
-      "desc": "功能描述",
-      "ai": "AI 特性",
-      "audience": "适合人群",
+      "desc": "简介",
+      "priceRange": "价格区间",
+      "platform": "平台",
+      "languageSupport": "语言支持",
       "site": "官网"
     },
     "actions": {
@@ -161,6 +161,20 @@
       "visitSite": "访问官网",
       "remove": "移除",
       "clear": "清空对比"
+    }
+  },
+  "details": {
+    "view": "查看详情",
+    "fields": {
+      "priceRange": "价格区间",
+      "platform": "平台",
+      "languageSupport": "语言支持"
+    },
+    "placeholder": {
+      "favoriteTitle": "收藏数据位（预留）",
+      "favoriteDesc": "后续将展示收藏人数、收藏趋势等信息。",
+      "reviewTitle": "用户评价数据位（预留）",
+      "reviewDesc": "后续将展示评分、评论摘要与典型反馈。"
     }
   },
   "errors": {
