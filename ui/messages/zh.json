@@ -19,9 +19,10 @@
   "home": {
     "title": "帮你选 AI",
     "subtitle": "告诉我你想做什么，我来推荐最合适的 AI 工具",
-    "searchPlaceholder": "请输入你的需求，例如：我想做PPT",
-    "searchEmptyPrompt": "请输入你的需求",
+    "heroHint": "1 句话描述目标，我们会返回 3-6 个可直接上手的推荐。",
+    "searchPlaceholder": "我想做PPT",
     "searchAction": "帮我选",
+    "examples": "输入示例：\"我想做一份融资路演 PPT\"、\"帮我写短视频脚本\"。结果预期：按场景给出工具名称、适用理由与官网链接。",
     "history": {
       "title": "历史搜索",
       "clear": "清空历史",

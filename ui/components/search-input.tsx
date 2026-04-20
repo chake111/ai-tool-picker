@@ -59,7 +59,7 @@ export function SearchInput({
 
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-2xl">
-      <div className="relative flex items-center gap-3">
+      <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <input
@@ -97,7 +97,7 @@ export function SearchInput({
           type="submit"
           size="lg"
           disabled={isLoading}
-          className="h-14 px-6 rounded-xl text-base font-medium"
+          className="h-14 w-full px-6 rounded-xl bg-primary text-primary-foreground text-base font-semibold shadow-sm transition-all hover:bg-primary/90 hover:shadow-md active:translate-y-px active:bg-primary/95 focus-visible:ring-2 focus-visible:ring-primary/40 sm:w-auto"
         >
           {isLoading ? (
             <>
