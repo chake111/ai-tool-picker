@@ -36,7 +36,6 @@ const HISTORY_LIMIT = 10
 const FAVORITES_LIMIT = 30
 const MAX_COMPARE_TOOLS = 3
 const AI_KEYWORD_REGEX = /(?:\bai\b|人工智能|大模型|生成式|llm|gpt|copilot|智能)/i
-const LOADING_SIMULATION_DELAY_MS = 350
 const FAVORITE_ANIMATION_DURATION_MS = 250
 const MAIN_COMPARE_PADDING_CLASS = "pb-72 sm:pb-64"
 const FILTER_OPTIONS: Array<{ key: keyof HomeFilters; group: "price" | "multi" }> = [
@@ -46,106 +45,6 @@ const FILTER_OPTIONS: Array<{ key: keyof HomeFilters; group: "price" | "multi" }
   { key: "pro", group: "multi" },
   { key: "chinese", group: "multi" },
 ]
-const POPULAR_TOOLS_BY_LOCALE: Record<"zh" | "en", RecommendItem[]> = {
-  zh: [
-    {
-      name: "ChatGPT",
-      desc: "多场景通用 AI 助手，适合写作、编程、总结和创意生成",
-      reason: "上手简单，适合新手和专业用户，支持中文对话",
-      link: "https://chat.openai.com",
-      tags: ["写作", "编程", "中文支持", "Beginner"],
-    },
-    {
-      name: "Claude",
-      desc: "擅长长文本理解与结构化输出的 AI 助手",
-      reason: "适合深度分析和长内容创作，专业用户体验友好",
-      link: "https://claude.ai",
-      tags: ["写作", "分析", "Pro"],
-    },
-    {
-      name: "Notion AI",
-      desc: "面向文档与团队协作的一体化 AI 功能",
-      reason: "和知识库结合紧密，适合办公与项目管理",
-      link: "https://www.notion.so/product/ai",
-      tags: ["办公", "团队", "Paid"],
-    },
-    {
-      name: "Gamma",
-      desc: "快速生成演示文稿与文档页面，适合做 PPT",
-      reason: "模板丰富、产出快，演示类需求效率高",
-      link: "https://gamma.app",
-      tags: ["PPT", "Beginner", "Free"],
-    },
-    {
-      name: "Midjourney",
-      desc: "高质量 AI 绘图工具，适合创意和视觉设计",
-      reason: "图片表现力强，适合对画面质量要求较高的场景",
-      link: "https://www.midjourney.com",
-      tags: ["绘图", "设计", "Pro", "Paid"],
-    },
-    {
-      name: "GitHub Copilot",
-      desc: "代码补全与编程建议工具，提升开发效率",
-      reason: "开发者常用，支持多语言编程场景",
-      link: "https://github.com/features/copilot",
-      tags: ["编程", "Pro", "Paid"],
-    },
-  ],
-  en: [
-    {
-      name: "ChatGPT",
-      desc: "A general AI assistant for writing, coding, summaries and creative work.",
-      reason: "Easy to start with and suitable for both beginners and pros.",
-      link: "https://chat.openai.com",
-      tags: ["Writing", "Coding", "Chinese support", "Beginner"],
-    },
-    {
-      name: "Claude",
-      desc: "An AI assistant that excels at long-context understanding and structured output.",
-      reason: "Great for deep analysis and long-form content creation.",
-      link: "https://claude.ai",
-      tags: ["Writing", "Analysis", "Pro"],
-    },
-    {
-      name: "Notion AI",
-      desc: "Integrated AI features for docs and team collaboration.",
-      reason: "Works tightly with your knowledge base and team workflows.",
-      link: "https://www.notion.so/product/ai",
-      tags: ["Office", "Team", "Paid"],
-    },
-    {
-      name: "Gamma",
-      desc: "Create presentations and pages quickly, ideal for slide decks.",
-      reason: "Fast output with rich templates for presentation-heavy tasks.",
-      link: "https://gamma.app",
-      tags: ["PPT", "Beginner", "Free"],
-    },
-    {
-      name: "Midjourney",
-      desc: "High-quality image generation for creative and visual design tasks.",
-      reason: "Strong image quality for scenarios requiring visual impact.",
-      link: "https://www.midjourney.com",
-      tags: ["Image", "Design", "Pro", "Paid"],
-    },
-    {
-      name: "GitHub Copilot",
-      desc: "Code completion and programming suggestions to boost dev productivity.",
-      reason: "Popular among developers and supports many coding languages.",
-      link: "https://github.com/features/copilot",
-      tags: ["Coding", "Pro", "Paid"],
-    },
-  ],
-}
-
-const pickRandomTools = (tools: RecommendItem[], count: number): RecommendItem[] => {
-  const shuffled = [...tools]
-  for (let i = shuffled.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-  }
-  return shuffled.slice(0, Math.min(count, shuffled.length))
-}
-
 const buildNextHistory = (currentHistory: SearchHistoryItem[], query: string): SearchHistoryItem[] => {
   const deduplicatedHistory = currentHistory.filter((item) => item.query !== query)
   return [{ query, timestamp: Date.now() }, ...deduplicatedHistory].slice(0, HISTORY_LIMIT)
@@ -168,7 +67,6 @@ export default function Home() {
     t("home.categories.draw"),
     t("home.categories.write"),
   ] as const
-  const popularTools = POPULAR_TOOLS_BY_LOCALE[locale === "zh" ? "zh" : "en"]
   const [query, setQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<(typeof categories)[number] | null>(null)
   const [results, setResults] = useState<RecommendItem[]>([])
@@ -192,6 +90,7 @@ export default function Home() {
     chinese: false,
   })
   const [favoriteAnimatingTool, setFavoriteAnimatingTool] = useState("")
+  const historySuggestions = useMemo(() => history.slice(0, 5).map((item) => item.query), [history])
   const [recommendMeta, setRecommendMeta] = useState<{
     requestId: string
     ranker: "v1" | "v2"
@@ -373,14 +272,9 @@ export default function Home() {
   const handleSearch = async (inputQuery: string) => {
     const normalizedQuery = inputQuery.trim()
     if (!normalizedQuery) {
-      setIsLoading(true)
-      setError("")
+      setError(t("home.searchEmptyPrompt"))
       setCompareLimitHint("")
-      setLastSearchedQuery(t("home.popularTools"))
       setResults([])
-      await new Promise((resolve) => setTimeout(resolve, LOADING_SIMULATION_DELAY_MS))
-      setResults(pickRandomTools(popularTools, 3))
-      setIsLoading(false)
       return
     }
 
@@ -463,6 +357,7 @@ export default function Home() {
   const handleHistoryClick = (historyQuery: string) => {
     setQuery(historyQuery)
     setSelectedCategory(getMatchedCategory(historyQuery))
+    setError("")
     void handleSearch(historyQuery)
   }
 
@@ -646,6 +541,9 @@ export default function Home() {
             placeholder={t("home.searchPlaceholder")}
             submitLabel={t("home.searchAction")}
             loadingLabel={t("common.thinking")}
+            historySuggestions={historySuggestions}
+            historyTitle={t("home.history.title")}
+            onSuggestionClick={handleHistoryClick}
           />
           {results.length === 0 && (
             <p className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs leading-relaxed text-muted-foreground sm:text-sm">
