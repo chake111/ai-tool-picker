@@ -175,3 +175,10 @@ curl http://localhost:3000/api/auth/debug
 ```
 
 如果返回 `404`，请先确认当前是否为生产环境。
+
+## 产品需求与评审文档 / Product requirement & review docs
+
+以下内容已拆分到独立文档，便于产品、设计、研发、数据分别维护：
+
+- `docs/product-scope-and-tracking.md`：首页/结果页/对比流程边界、不做项、事件埋点清单、阶段验收口径、30 分钟评审会与需求冻结机制。
+
