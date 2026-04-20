@@ -900,6 +900,10 @@ function normalizeRecommendations(
       reason: item.reason.trim(),
       link: item.link,
       tags: localizeTags(normalizeTags(item.tags, item.name), locale),
+      fitReasons: Array.isArray(item.fitReasons) ? item.fitReasons.filter((reason) => typeof reason === "string") : undefined,
+      bestFor: Array.isArray(item.bestFor) ? item.bestFor.filter((entry) => typeof entry === "string") : undefined,
+      limitations: Array.isArray(item.limitations) ? item.limitations.filter((entry) => typeof entry === "string") : undefined,
+      confidenceScore: typeof item.confidenceScore === "number" ? item.confidenceScore : undefined,
     }))
     .filter((item) => item.name && item.desc && item.reason)
     .filter((item) => !isTraditionalTool(item.name))
@@ -936,12 +940,26 @@ function normalizeRecommendations(
   return maybeInjectExplorationCandidate(diversified, rankerAdjusted).slice(0, 3)
 }
 
+function normalizeConfidence(finalScore: number): number {
+  return Math.max(0.5, Math.min(0.99, finalScore))
+}
+
 function toResponseItems(scored: ScoredRecommendation[], debug: boolean): RecommendItem[] {
   if (!debug) {
-    return scored.map((entry) => entry.item)
+    return scored.map((entry) => ({
+      ...entry.item,
+      fitReasons: entry.item.fitReasons ?? [entry.item.reason],
+      bestFor: entry.item.bestFor ?? entry.item.tags.slice(0, 2),
+      limitations: entry.item.limitations ?? [],
+      confidenceScore: typeof entry.item.confidenceScore === "number" ? entry.item.confidenceScore : normalizeConfidence(entry.finalScore),
+    }))
   }
   return scored.map((entry) => ({
     ...entry.item,
+    fitReasons: entry.item.fitReasons ?? [entry.item.reason],
+    bestFor: entry.item.bestFor ?? entry.item.tags.slice(0, 2),
+    limitations: entry.item.limitations ?? [],
+    confidenceScore: typeof entry.item.confidenceScore === "number" ? entry.item.confidenceScore : normalizeConfidence(entry.finalScore),
     semantic_score: Number(entry.semanticScore.toFixed(4)),
     user_score: Number(entry.userScore.toFixed(4)),
     business_score: Number(entry.businessScore.toFixed(4)),

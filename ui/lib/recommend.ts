@@ -7,6 +7,10 @@ export type RecommendItem = {
   priceRange?: string
   platform?: string
   languageSupport?: string
+  fitReasons?: string[]
+  bestFor?: string[]
+  limitations?: string[]
+  confidenceScore?: number
 }
 
 export type ToolEmbeddingRecord = {

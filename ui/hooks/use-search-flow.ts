@@ -6,12 +6,25 @@ import type { RecommendItem } from "@/lib/recommend"
 export const FILTER_OPTIONS = ["all", "free", "paid", "beginner", "pro", "chinese"] as const
 export type FilterOption = (typeof FILTER_OPTIONS)[number]
 
+export const SORT_OPTIONS = ["confidence", "name"] as const
+export type SortOption = (typeof SORT_OPTIONS)[number]
+
 const RESULTS_PER_PAGE = 6
 
-type DisplayItem = RecommendItem & {
+type PricingType = "free" | "paid" | "unknown"
+type SkillLevel = "beginner" | "pro" | "unknown"
+
+export type DisplayItem = RecommendItem & {
   priceRange: string
   platform: string
   languageSupport: string
+  pricingType: PricingType
+  skillLevel: SkillLevel
+  chineseSupport: boolean
+  confidenceScore: number
+  fitReasons: string[]
+  bestFor: string[]
+  limitations: string[]
 }
 
 type UseSearchFlowOptions = {
@@ -19,9 +32,30 @@ type UseSearchFlowOptions = {
   onSearchSuccess?: (query: string) => void
 }
 
-const includesAny = (item: DisplayItem, candidates: string[]) => {
-  const text = `${item.priceRange} ${item.platform} ${item.languageSupport} ${(item.tags ?? []).join(" ")}`.toLowerCase()
-  return candidates.some((candidate) => text.includes(candidate))
+const inferPricingType = (item: RecommendItem): PricingType => {
+  const text = `${item.priceRange ?? ""} ${(item.tags ?? []).join(" ")}`.toLowerCase()
+  if (/(free|免费)/.test(text)) return "free"
+  if (/(paid|付费|订阅|pro)/.test(text)) return "paid"
+  return "unknown"
+}
+
+const inferSkillLevel = (item: RecommendItem): SkillLevel => {
+  const text = `${(item.bestFor ?? []).join(" ")} ${(item.tags ?? []).join(" ")}`.toLowerCase()
+  if (/(beginner|新手|入门|easy)/.test(text)) return "beginner"
+  if (/(pro|advanced|专业|开发者|设计师)/.test(text)) return "pro"
+  return "unknown"
+}
+
+const inferChineseSupport = (item: RecommendItem) => {
+  const text = `${item.languageSupport ?? ""} ${(item.tags ?? []).join(" ")}`.toLowerCase()
+  return /(chinese|中文|zh)/.test(text)
+}
+
+const normalizeConfidenceScore = (item: RecommendItem) => {
+  if (typeof item.confidenceScore === "number" && Number.isFinite(item.confidenceScore)) {
+    return Math.max(0, Math.min(1, item.confidenceScore))
+  }
+  return 0.72
 }
 
 export function useSearchFlow({ locale, onSearchSuccess }: UseSearchFlowOptions) {
@@ -31,9 +65,21 @@ export function useSearchFlow({ locale, onSearchSuccess }: UseSearchFlowOptions)
   const [results, setResults] = useState<DisplayItem[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [filters, setFilters] = useState<FilterOption>("all")
+  const [sortBy, setSortBy] = useState<SortOption>("confidence")
 
   const setFilterAndResetPage = useCallback((option: FilterOption) => {
     setFilters(option)
+    setCurrentPage(1)
+  }, [])
+
+  const setSortAndResetPage = useCallback((option: SortOption) => {
+    setSortBy(option)
+    setCurrentPage(1)
+  }, [])
+
+  const clearConditions = useCallback(() => {
+    setFilters("all")
+    setSortBy("confidence")
     setCurrentPage(1)
   }, [])
 
@@ -60,12 +106,22 @@ export function useSearchFlow({ locale, onSearchSuccess }: UseSearchFlowOptions)
         }
 
         const data = (await response.json()) as { recommendations?: RecommendItem[] }
-        const normalized = (data.recommendations ?? []).map((item) => ({
-          ...item,
-          priceRange: item.priceRange?.trim() || (locale === "zh" ? "未知" : "Unknown"),
-          platform: item.platform?.trim() || (locale === "zh" ? "未知" : "Unknown"),
-          languageSupport: item.languageSupport?.trim() || (locale === "zh" ? "未知" : "Unknown"),
-        }))
+        const normalized = (data.recommendations ?? []).map((item) => {
+          const fitReasons = Array.isArray(item.fitReasons) && item.fitReasons.length ? item.fitReasons : [item.reason]
+          return {
+            ...item,
+            priceRange: item.priceRange?.trim() || (locale === "zh" ? "未知" : "Unknown"),
+            platform: item.platform?.trim() || (locale === "zh" ? "未知" : "Unknown"),
+            languageSupport: item.languageSupport?.trim() || (locale === "zh" ? "未知" : "Unknown"),
+            pricingType: inferPricingType(item),
+            skillLevel: inferSkillLevel(item),
+            chineseSupport: inferChineseSupport(item),
+            confidenceScore: normalizeConfidenceScore(item),
+            fitReasons,
+            bestFor: Array.isArray(item.bestFor) ? item.bestFor : [],
+            limitations: Array.isArray(item.limitations) ? item.limitations : [],
+          }
+        })
         setResults(normalized)
         setCurrentPage(1)
         onSearchSuccess?.(trimmed)
@@ -79,21 +135,29 @@ export function useSearchFlow({ locale, onSearchSuccess }: UseSearchFlowOptions)
   )
 
   const filteredResults = useMemo(() => {
-    if (filters === "all") return results
     return results.filter((item) => {
-      if (filters === "free") return includesAny(item, ["free", "免费"])
-      if (filters === "paid") return includesAny(item, ["paid", "付费", "订阅", "pro"])
-      if (filters === "beginner") return includesAny(item, ["beginner", "新手", "easy", "入门"])
-      if (filters === "pro") return includesAny(item, ["pro", "advanced", "专业"])
-      return includesAny(item, ["chinese", "中文", "zh"])
+      if (filters === "all") return true
+      if (filters === "free") return item.pricingType === "free"
+      if (filters === "paid") return item.pricingType === "paid"
+      if (filters === "beginner") return item.skillLevel === "beginner"
+      if (filters === "pro") return item.skillLevel === "pro"
+      return item.chineseSupport
     })
   }, [filters, results])
 
-  const totalPages = Math.max(1, Math.ceil(filteredResults.length / RESULTS_PER_PAGE))
+  const sortedResults = useMemo(() => {
+    const copy = [...filteredResults]
+    if (sortBy === "name") {
+      return copy.sort((a, b) => a.name.localeCompare(b.name))
+    }
+    return copy.sort((a, b) => b.confidenceScore - a.confidenceScore)
+  }, [filteredResults, sortBy])
+
+  const totalPages = Math.max(1, Math.ceil(sortedResults.length / RESULTS_PER_PAGE))
   const pagedResults = useMemo(() => {
     const start = (currentPage - 1) * RESULTS_PER_PAGE
-    return filteredResults.slice(start, start + RESULTS_PER_PAGE)
-  }, [currentPage, filteredResults])
+    return sortedResults.slice(start, start + RESULTS_PER_PAGE)
+  }, [currentPage, sortedResults])
 
   const previousPage = useCallback(() => setCurrentPage((prev) => Math.max(1, prev - 1)), [])
   const nextPage = useCallback(() => setCurrentPage((prev) => Math.min(totalPages, prev + 1)), [totalPages])
@@ -107,8 +171,11 @@ export function useSearchFlow({ locale, onSearchSuccess }: UseSearchFlowOptions)
     results,
     filters,
     setFilterAndResetPage,
+    sortBy,
+    setSortAndResetPage,
+    clearConditions,
     pagedResults,
-    filteredResults,
+    filteredResults: sortedResults,
     currentPage,
     totalPages,
     previousPage,
