@@ -127,7 +127,6 @@
     "limit": "收藏上限为 {limit} 个工具"
   },
   "compare": {
-    "label": "对比",
     "add": "加入对比",
     "addOne": "将 {name} 加入对比",
     "added": "已加入",
