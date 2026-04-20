@@ -69,6 +69,29 @@
     "emptyHint": "Try: make PPT, write copy, draw, write code...",
     "popularTools": "Popular tools"
   },
+  "preferences": {
+    "title": "Recommendation preferences",
+    "subtitle": "Preferences and recent history are both used for ranking",
+    "reset": "Reset preferences",
+    "pricing": {
+      "any": "Any pricing",
+      "free": "Free first",
+      "paid": "Paid first"
+    },
+    "chineseFirst": "Prefer Chinese-friendly tools",
+    "platformTitle": "Platform preference",
+    "platforms": {
+      "web": "Web",
+      "mobile": "Mobile",
+      "desktop": "Desktop"
+    },
+    "recommendationsTitle": "Recommended for your preferences",
+    "recommendationsSubtitle": "Showing 3 items for now. You can reset or adjust anytime.",
+    "privacy": {
+      "local": "Privacy notice: preferences and history stay in local browser storage and are not auto-synced.",
+      "account": "Privacy notice: preferences stay local; favorites and behavior events are synced to your account for recommendations."
+    }
+  },
   "filters": {
     "title": "Filters:",
     "options": {
