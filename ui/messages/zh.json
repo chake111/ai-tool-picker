@@ -121,15 +121,15 @@
     "empty": "你还没有收藏工具",
     "remove": "取消收藏",
     "removeOne": "取消收藏 {name}",
-    "add": "收藏",
+    "add": "加入收藏",
     "addOne": "收藏 {name}",
-    "added": "已收藏",
+    "added": "收藏中",
     "limit": "收藏上限为 {limit} 个工具"
   },
   "compare": {
     "add": "加入对比",
     "addOne": "将 {name} 加入对比",
-    "added": "已加入",
+    "added": "对比中",
     "limit": "最多只能对比 {limit} 个工具",
     "open": "打开工具对比（{count}）",
     "title": "工具对比（{current}/{max}）",
@@ -163,7 +163,7 @@
     }
   },
   "details": {
-    "view": "查看详情",
+    "view": "了解详情",
     "fields": {
       "priceRange": "价格区间",
       "platform": "平台",

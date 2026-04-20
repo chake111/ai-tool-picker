@@ -121,15 +121,15 @@
     "empty": "You have no favorites yet",
     "remove": "Remove favorite",
     "removeOne": "Remove favorite {name}",
-    "add": "Favorite",
+    "add": "Save",
     "addOne": "Favorite {name}",
-    "added": "Favorited",
+    "added": "Saved",
     "limit": "You can favorite up to {limit} tools"
   },
   "compare": {
     "add": "Add to compare",
     "addOne": "Add {name} to compare",
-    "added": "Added",
+    "added": "In compare",
     "limit": "You can compare up to {limit} tools",
     "open": "Open tool compare ({count})",
     "title": "Tool compare ({current}/{max})",
@@ -163,7 +163,7 @@
     }
   },
   "details": {
-    "view": "View details",
+    "view": "See details",
     "fields": {
       "priceRange": "Price range",
       "platform": "Platform",
