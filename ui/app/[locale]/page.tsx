@@ -429,6 +429,8 @@ export default function Home() {
       setHistoryPage(nextMaxPage)
     }
   }, [historyCollapsed, historyPage, historyPageSize, localizedHistory.length])
+
+  useEffect(() => {
     setCurrentPage(1)
   }, [activeFilters, query, results])
 
