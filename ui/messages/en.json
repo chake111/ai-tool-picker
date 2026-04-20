@@ -127,7 +127,6 @@
     "limit": "You can favorite up to {limit} tools"
   },
   "compare": {
-    "label": "Compare",
     "add": "Add to compare",
     "addOne": "Add {name} to compare",
     "added": "Added",

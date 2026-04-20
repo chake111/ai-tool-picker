@@ -678,11 +678,8 @@ export default function Home() {
 
   const isToolSelected = (toolName: string) => compareTools.some((tool) => tool.name === toolName)
 
-  const handleCompareToggle = (item: DisplayRecommendItem, checked: boolean | "indeterminate") => {
-    if (checked === "indeterminate") {
-      return
-    }
-    if (!checked) {
+  const handleCompareToggle = (item: DisplayRecommendItem) => {
+    if (isToolSelected(item.name)) {
       setCompareTools((prev) => prev.filter((tool) => tool.name !== item.name))
       clearCompareLimitHint()
       return
@@ -1238,19 +1235,13 @@ export default function Home() {
                             <Heart className={cn("size-4", isToolFavorited(item.name) ? "fill-current" : "")} />
                             <span>{isToolFavorited(item.name) ? t("favorites.added") : t("favorites.add")}</span>
                           </button>
-                           <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-                             <Checkbox
-                               checked={isToolSelected(item.name)}
-                               onCheckedChange={(checked) => handleCompareToggle(item, checked)}
-                               aria-label={t("compare.addOne", { name: item.name })}
-                             />
-                             {t("compare.label")}
-                           </label>
                            <Button
                              type="button"
                              size="sm"
                              variant={isToolSelected(item.name) ? "secondary" : "outline"}
-                             onClick={() => handleCompareToggle(item, !isToolSelected(item.name))}
+                             onClick={() => handleCompareToggle(item)}
+                             aria-pressed={isToolSelected(item.name)}
+                             aria-label={t("compare.addOne", { name: item.name })}
                              className={cn(
                                "min-w-20",
                                isToolSelected(item.name) ? "border-primary bg-primary/10 text-primary" : "",
