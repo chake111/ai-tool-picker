@@ -26,14 +26,15 @@ export function ResultsToolbar<TFilter extends string, TSort extends string>({
   onClear,
 }: ResultsToolbarProps<TFilter, TSort>) {
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2" aria-label="results-toolbar">
+    <div className="app-toolbar justify-end" aria-label="results-toolbar">
       <div className="flex flex-wrap gap-2">
         {filterOptions.map((option) => (
           <Button
             key={option}
             size="sm"
-            variant={activeFilter === option ? "default" : "outline"}
-            className="rounded-full"
+            variant="outline"
+            data-active={activeFilter === option}
+            className="app-chip rounded-full"
             onClick={() => onFilterChange(option)}
           >
             {getFilterLabel(option)}

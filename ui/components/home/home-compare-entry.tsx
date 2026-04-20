@@ -41,7 +41,7 @@ export function HomeCompareEntry({ locale, selectedCount, maxCount, compareQuery
             })}
           </div>
         </div>
-        <Button asChild size="sm" className="rounded-xl" variant={canCompare ? "default" : "secondary"} disabled={!canCompare}>
+        <Button asChild size="sm" className="rounded-xl" disabled={!canCompare}>
           <Link href={`/${locale}/compare?tools=${compareQuery}`}>{locale === "zh" ? "去对比" : "Go compare"}</Link>
         </Button>
       </div>

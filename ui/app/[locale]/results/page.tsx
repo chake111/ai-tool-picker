@@ -106,7 +106,7 @@ export default function ResultsPage() {
   const compareQuery = useMemo(() => encodeURIComponent(compareTools.map((tool) => tool.name).join(",")), [compareTools])
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pb-28 pt-8 sm:px-6 lg:px-8">
+    <main className="app-page-container">
       {searchFlow.error && <p className="text-sm text-destructive">{searchFlow.error}</p>}
 
       <ResultsList

@@ -14,12 +14,12 @@ const sampleCards = [
 export function HomeResultsPreview({ title, emptyHint }: HomeResultsPreviewProps) {
   return (
     <section className="space-y-4">
-      <h2 className="text-xl font-semibold">{title}</h2>
-      <Card className="space-y-4 rounded-2xl border-dashed p-5">
+      <h2 className="app-section-title">{title}</h2>
+      <Card className="app-panel space-y-4 border-dashed p-5">
         <p className="text-sm text-muted-foreground">{emptyHint}</p>
         <div className="grid gap-3 md:grid-cols-3">
           {sampleCards.map((sample) => (
-            <div key={sample.name} className="rounded-xl border border-border/80 bg-muted/20 p-4">
+            <div key={sample.name} className="app-panel rounded-[var(--radius-md-token)] bg-[var(--surface-muted)] p-4">
               <p className="text-sm font-semibold">{sample.name}</p>
               <p className="mt-1 text-xs text-muted-foreground">{sample.desc}</p>
               <div className="mt-2 flex flex-wrap gap-1.5">
