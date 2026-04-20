@@ -144,3 +144,34 @@ Google OAuth 的回调路径固定为：
 1. 将实验流量切回 `ranker=v1`（停止 `v2` 灰度）。
 2. 对异常 `locale/scenario` 单独降级（仅保留基线排序）。
 3. 保留事件与 requestId，复盘具体 query 样本，修正规则后重新灰度。
+
+## Auth 配置排障 / Auth configuration troubleshooting
+
+为便于定位不同环境（本地 / 预发 / 线上）间的认证配置差异，项目新增了 auth 自检与调试接口。
+
+### 1) 启动/首次请求时的自检告警（仅开发或调试模式）
+
+当 `NODE_ENV !== production`（或显式开启 `AUTH_DEBUG=true`）时，服务会在启动或首次加载认证模块时检查并输出告警：
+
+- `[auth] missing GOOGLE_CLIENT_ID`
+- `[auth] missing GOOGLE_CLIENT_SECRET`
+- `[auth] missing NEXTAUTH_URL`
+- `[auth] invalid NEXTAUTH_URL`
+
+> 安全说明：日志只会输出“是否缺失/是否非法”，不会打印任何密钥原文。
+
+### 2) 调试接口（仅非生产环境可用）
+
+新增接口：`GET /api/auth/debug`
+
+- 返回 auth 关键配置的**脱敏状态**（例如 `configured` / `missing`）
+- 返回 `NEXTAUTH_URL` 是否存在、是否是合法 URL
+- 生产环境（`NODE_ENV=production`）下固定返回 `404`
+
+示例：
+
+```bash
+curl http://localhost:3000/api/auth/debug
+```
+
+如果返回 `404`，请先确认当前是否为生产环境。
