@@ -129,8 +129,13 @@ export function useSearchFlow({ locale, onSearchSuccess }: UseSearchFlowOptions)
           throw new Error("request failed")
         }
 
-        const data = (await response.json()) as { recommendations?: RecommendItem[] }
-        const normalized = (data.recommendations ?? []).map((item) => {
+        const payload = (await response.json()) as RecommendItem[] | { recommendations?: RecommendItem[] }
+        const recommendations = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.recommendations)
+            ? payload.recommendations
+            : []
+        const normalized = recommendations.map((item) => {
           const fitReasons = Array.isArray(item.fitReasons) && item.fitReasons.length ? item.fitReasons : [item.reason]
           return {
             ...item,
