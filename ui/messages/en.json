@@ -19,7 +19,8 @@
   "home": {
     "title": "Let me pick AI for you",
     "subtitle": "Tell me what you want to do and I will recommend the most suitable AI tools",
-    "searchPlaceholder": "I want to make a PPT",
+    "searchPlaceholder": "Describe your needs, e.g. I want to make a PPT",
+    "searchEmptyPrompt": "Please enter your needs",
     "searchAction": "Pick for me",
     "history": {
       "title": "Search history",

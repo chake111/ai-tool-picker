@@ -19,7 +19,8 @@
   "home": {
     "title": "帮你选 AI",
     "subtitle": "告诉我你想做什么，我来推荐最合适的 AI 工具",
-    "searchPlaceholder": "我想做PPT",
+    "searchPlaceholder": "请输入你的需求，例如：我想做PPT",
+    "searchEmptyPrompt": "请输入你的需求",
     "searchAction": "帮我选",
     "history": {
       "title": "历史搜索",
