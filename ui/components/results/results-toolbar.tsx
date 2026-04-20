@@ -45,51 +45,56 @@ export function ResultsToolbar<TFilter extends string, TSort extends string>({
   }
 
   return (
-    <div className="app-toolbar justify-end" aria-label="results-toolbar">
+    <div className="space-y-3" aria-label="results-toolbar">
       {typeof refineQuery === "string" && onRefineQueryChange && onRefineSubmit && refineInputLabel && refineSubmitLabel && (
-        <form className="flex w-full max-w-xl items-center gap-2" onSubmit={handleRefineSubmit}>
+        <form className="flex w-full flex-col gap-2 sm:flex-row sm:items-center" onSubmit={handleRefineSubmit}>
           <Input
             value={refineQuery}
             onChange={(event) => onRefineQueryChange(event.target.value)}
             aria-label={refineInputLabel}
             placeholder={refineInputPlaceholder}
+            className="h-10 rounded-xl"
           />
-          <Button size="sm" type="submit" className="rounded-xl">
+          <Button size="sm" type="submit" className="h-10 rounded-xl px-4">
             {refineSubmitLabel}
           </Button>
         </form>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        {filterOptions.map((option) => (
-          <Button
-            key={option}
-            size="sm"
-            variant="outline"
-            data-active={activeFilter === option}
-            className="app-chip rounded-full"
-            onClick={() => onFilterChange(option)}
+      <div className="app-toolbar">
+        <div className="flex flex-wrap gap-2">
+          {filterOptions.map((option) => (
+            <Button
+              key={option}
+              size="sm"
+              variant="outline"
+              data-active={activeFilter === option}
+              className="app-chip rounded-full"
+              onClick={() => onFilterChange(option)}
+            >
+              {getFilterLabel(option)}
+            </Button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <select
+            className="h-9 rounded-lg border border-input bg-background px-2 text-sm"
+            value={activeSort}
+            onChange={(event) => onSortChange(event.target.value as TSort)}
           >
-            {getFilterLabel(option)}
+            {sortOptions.map((option) => (
+              <option key={option} value={option}>
+                {getSortLabel(option)}
+              </option>
+            ))}
+          </select>
+
+          <Button size="sm" variant="ghost" className="rounded-xl" onClick={onClear}>
+            {clearLabel}
           </Button>
-        ))}
+        </div>
       </div>
-
-      <select
-        className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-        value={activeSort}
-        onChange={(event) => onSortChange(event.target.value as TSort)}
-      >
-        {sortOptions.map((option) => (
-          <option key={option} value={option}>
-            {getSortLabel(option)}
-          </option>
-        ))}
-      </select>
-
-      <Button size="sm" variant="ghost" className="rounded-xl" onClick={onClear}>
-        {clearLabel}
-      </Button>
     </div>
   )
 }

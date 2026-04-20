@@ -52,6 +52,7 @@ export default function HomePage() {
       <HomeHero
         title={t("home.subtitle")}
         subtitle={t("home.heroHint")}
+        trustNote={t("home.trustNote")}
         inputArea={
           <SearchInput
             query={searchFlow.query}
@@ -59,7 +60,7 @@ export default function HomePage() {
             onSearch={handleSearch}
             isLoading={searchFlow.isLoading}
             placeholder={t("home.searchPlaceholder")}
-            submitLabel={locale === "zh" ? "推荐" : "Recommend"}
+            submitLabel={locale === "zh" ? "开始推荐" : "Get Recommendations"}
             loadingLabel={t("common.thinking")}
             helperText={t("home.searchHelper")}
             historySuggestions={history.suggestions}
@@ -68,15 +69,25 @@ export default function HomePage() {
               searchFlow.setQuery(suggestion)
               void handleSearch(suggestion)
             }}
-            rotatingPlaceholders={["做 PPT", "写文案", "画图", "写代码"]}
+            rotatingPlaceholders={[
+              locale === "zh" ? "我需要做一份融资路演 PPT" : "I need a fundraising pitch deck",
+              locale === "zh" ? "我要写小红书产品种草文案" : "I need social media product copy",
+              locale === "zh" ? "我要快速做品牌视觉图" : "I need fast brand visuals",
+            ]}
           />
         }
+        scenarioTitle={t("home.quickScenesTitle")}
+        stats={[
+          { label: t("home.stats.countLabel"), value: t("home.stats.countValue") },
+          { label: t("home.stats.timeLabel"), value: t("home.stats.timeValue") },
+          { label: t("home.stats.reasonLabel"), value: t("home.stats.reasonValue") },
+        ]}
         quickScenes={<HomeQuickScenes scenes={quickScenes} query={searchFlow.query} onSelect={searchFlow.setQuery} />}
       />
 
       {searchFlow.error && <p className="text-sm text-destructive">{searchFlow.error}</p>}
 
-      <HomeResultsPreview title={t("home.resultsTitle")} emptyHint={t("home.emptyHint")} />
+      <HomeResultsPreview title={t("home.resultsTitle")} subtitle={t("home.resultsPreviewSubtitle")} emptyHint={t("home.emptyHint")} />
     </main>
   )
 }
