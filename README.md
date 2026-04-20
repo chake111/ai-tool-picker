@@ -30,6 +30,27 @@ AI Tool Picker helps you quickly choose the best AI tool for your task — wheth
 
 Next.js · TypeScript · Tailwind CSS · NextAuth · PostgreSQL · GLM-4-Flash
 
+## 工具库维护流程 / Tool library maintenance
+
+以下步骤用于新增工具、更新标签与重建向量（离线 embedding）：
+
+1. 编辑 `ui/data/tools.json`：
+   - 新增工具（name/desc/tags/use_cases/target_users/link/status）
+   - 或更新已有工具标签与描述
+2. 同步到数据库：
+   ```bash
+   cd ui
+   npm run tools:sync
+   ```
+3. 重建工具向量（建议由 CI/定时任务触发，也可手动执行）：
+   ```bash
+   cd ui
+   npm run tools:embed
+   ```
+4. 推荐接口会直接读取 `tool_embeddings` 的持久化向量，并在外部 embedding API 超时/失败时，回退到本地缓存的查询向量。
+
+> 说明：`tools:embed` 默认使用 `text-embedding-3-small`。可通过环境变量 `EMBEDDING_MODEL=embedding-3` 切换到智谱向量模型。
+
 ## 规划 / Roadmap
 
 - 增加更多工具分类 / More tool categories  

@@ -13,6 +13,11 @@ enum UserEventAction {
   click
 }
 
+enum ToolStatus {
+  active
+  inactive
+}
+
 model UserEvent {
   id        BigInt          @id @default(autoincrement())
   action    UserEventAction
@@ -42,4 +47,47 @@ model UserFavorite {
   @@unique([userId, toolId], map: "user_favorites_user_id_tool_id_key")
   @@index([userId, updatedAt], map: "user_favorites_user_id_updated_at_idx")
   @@map("user_favorites")
+}
+
+model Tool {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  desc        String
+  tags        String[]
+  useCases    String[]    @map("use_cases")
+  targetUsers String[]    @map("target_users")
+  link        String
+  status      ToolStatus  @default(active)
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  embeddings  ToolEmbedding[]
+
+  @@index([status, updatedAt], map: "tools_status_updated_at_idx")
+  @@map("tools")
+}
+
+model ToolEmbedding {
+  id         BigInt   @id @default(autoincrement())
+  toolId     String   @map("tool_id")
+  model      String
+  vector     Float[]
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  sourceHash String   @map("source_hash")
+  tool       Tool     @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@unique([toolId, model], map: "tool_embeddings_tool_id_model_key")
+  @@index([model, updatedAt], map: "tool_embeddings_model_updated_at_idx")
+  @@map("tool_embeddings")
+}
+
+model QueryEmbeddingCache {
+  id        BigInt   @id @default(autoincrement())
+  key       String   @unique
+  model     String
+  vector    Float[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([model, updatedAt], map: "query_embedding_cache_model_updated_at_idx")
+  @@map("query_embedding_cache")
 }

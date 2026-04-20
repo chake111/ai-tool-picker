@@ -1,0 +1,56 @@
+[
+  {
+    "name": "Gamma",
+    "desc": "AI 演示文稿工具，可根据主题自动生成结构化页面与视觉排版。",
+    "tags": ["办公用户", "内容创作者", "新手友好"],
+    "use_cases": ["制作PPT", "演示文稿设计", "路演方案展示"],
+    "target_users": ["学生", "市场人员", "咨询顾问"],
+    "link": "https://gamma.app",
+    "status": "active"
+  },
+  {
+    "name": "Tome",
+    "desc": "叙事型 AI 演示工具，能够快速生成故事线、页面内容与视觉布局。",
+    "tags": ["内容创作者", "设计师", "办公用户"],
+    "use_cases": ["故事化演示", "销售提案展示", "团队汇报"],
+    "target_users": ["创业团队", "销售团队", "内容创作者"],
+    "link": "https://tome.app",
+    "status": "active"
+  },
+  {
+    "name": "Notion AI",
+    "desc": "Notion 内置 AI 助手，支持写作、总结、改写与知识问答。",
+    "tags": ["办公用户", "团队协作", "新手友好"],
+    "use_cases": ["会议纪要总结", "草稿写作", "知识库问答"],
+    "target_users": ["产品经理", "运营团队", "学生"],
+    "link": "https://www.notion.so/product/ai",
+    "status": "active"
+  },
+  {
+    "name": "ChatGPT",
+    "desc": "通用型生成式 AI 助手，可用于内容创作、分析、代码与头脑风暴。",
+    "tags": ["新手友好", "通用场景", "中文友好"],
+    "use_cases": ["头脑风暴", "内容写作", "代码辅助"],
+    "target_users": ["学生", "开发者", "市场人员"],
+    "link": "https://chat.openai.com",
+    "status": "active"
+  },
+  {
+    "name": "Midjourney",
+    "desc": "AI 图像生成工具，可根据文本提示创作高质量视觉内容。",
+    "tags": ["设计师", "英文环境", "专业用户"],
+    "use_cases": ["插画生成", "广告创意图", "概念图设计"],
+    "target_users": ["设计师", "广告从业者", "内容创作者"],
+    "link": "https://www.midjourney.com",
+    "status": "active"
+  },
+  {
+    "name": "GitHub Copilot",
+    "desc": "面向开发者的 AI 编码助手，可生成代码、测试与注释建议。",
+    "tags": ["开发者", "专业用户", "团队协作"],
+    "use_cases": ["生成样板代码", "生成测试用例", "学习新接口"],
+    "target_users": ["软件工程师", "计算机学生", "技术团队"],
+    "link": "https://github.com/features/copilot",
+    "status": "active"
+  }
+]

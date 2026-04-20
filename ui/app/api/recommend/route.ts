@@ -11,6 +11,8 @@ import type {
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { USER_BEHAVIOR_WEIGHTS, cosineSimilarity } from "@/lib/recommend"
+import { createEmbeddingWithDegrade } from "@/lib/embedding"
+import { type ToolDatasetItem, getActiveTools } from "@/lib/tools"
 
 type RecommendRequest = {
   query: string
@@ -32,38 +34,13 @@ type ZhipuChatResponse = {
   }>
 }
 
-type ZhipuEmbeddingResponse = {
-  data?: Array<{
-    embedding?: number[]
-  }>
-}
-
-type OpenAIEmbeddingResponse = {
-  data?: Array<{
-    embedding?: number[]
-  }>
-}
-
-type ToolDatasetItem = {
-  name: string
-  description: string
-  tags: string[]
-  use_cases: string[]
-  target_users: string[]
-  link: string
-}
-
 type ToolEmbeddingItem = {
   tool: ToolDatasetItem
   embedding: number[]
 }
 
 const ZHIPU_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
-const ZHIPU_EMBEDDING_API_URL = "https://open.bigmodel.cn/api/paas/v4/embeddings"
-const OPENAI_EMBEDDING_API_URL = "https://api.openai.com/v1/embeddings"
 const ZHIPU_API_TIMEOUT_MS = 30_000
-const ZHIPU_EMBEDDING_MODEL = "embedding-3"
-const OPENAI_EMBEDDING_MODEL = "text-embedding-3-small"
 const AI_DETAIL_KEYWORD_REGEX = /(?:\bai\b|人工智能|大模型|生成式|llm|gpt|copilot|智能)/i
 const CJK_CHAR_REGEX = /[\u3400-\u9FFF]/g
 const LATIN_CHAR_REGEX = /[A-Za-z]/g
@@ -131,56 +108,6 @@ const EN_TOOL_TEXT: Record<string, { description: string; reason: string }> = {
     reason: "It helps maintain a professional design standard while reducing manual formatting effort with AI.",
   },
 }
-const TOOL_DATASET: ToolDatasetItem[] = [
-  {
-    name: "Gamma",
-    description: "AI 演示文稿工具，可根据主题自动生成结构化页面与视觉排版。",
-    tags: ["办公用户", "内容创作者", "新手友好"],
-    use_cases: ["制作PPT", "演示文稿设计", "路演方案展示"],
-    target_users: ["学生", "市场人员", "咨询顾问"],
-    link: "https://gamma.app",
-  },
-  {
-    name: "Tome",
-    description: "叙事型 AI 演示工具，能够快速生成故事线、页面内容与视觉布局。",
-    tags: ["内容创作者", "设计师", "办公用户"],
-    use_cases: ["故事化演示", "销售提案展示", "团队汇报"],
-    target_users: ["创业团队", "销售团队", "内容创作者"],
-    link: "https://tome.app",
-  },
-  {
-    name: "Notion AI",
-    description: "Notion 内置 AI 助手，支持写作、总结、改写与知识问答。",
-    tags: ["办公用户", "团队协作", "新手友好"],
-    use_cases: ["会议纪要总结", "草稿写作", "知识库问答"],
-    target_users: ["产品经理", "运营团队", "学生"],
-    link: "https://www.notion.so/product/ai",
-  },
-  {
-    name: "ChatGPT",
-    description: "通用型生成式 AI 助手，可用于内容创作、分析、代码与头脑风暴。",
-    tags: ["新手友好", "通用场景", "中文友好"],
-    use_cases: ["头脑风暴", "内容写作", "代码辅助"],
-    target_users: ["学生", "开发者", "市场人员"],
-    link: "https://chat.openai.com",
-  },
-  {
-    name: "Midjourney",
-    description: "AI 图像生成工具，可根据文本提示创作高质量视觉内容。",
-    tags: ["设计师", "英文环境", "专业用户"],
-    use_cases: ["插画生成", "广告创意图", "概念图设计"],
-    target_users: ["设计师", "广告从业者", "内容创作者"],
-    link: "https://www.midjourney.com",
-  },
-  {
-    name: "GitHub Copilot",
-    description: "面向开发者的 AI 编码助手，可生成代码、测试与注释建议。",
-    tags: ["开发者", "专业用户", "团队协作"],
-    use_cases: ["生成样板代码", "生成测试用例", "学习新接口"],
-    target_users: ["软件工程师", "计算机学生", "技术团队"],
-    link: "https://github.com/features/copilot",
-  },
-]
 const TRADITIONAL_SOFTWARE_BLOCKLIST = [
   /^powerpoint$/i,
   /^microsoft power ?point$/i,
@@ -312,8 +239,6 @@ const EN_TO_ZH_TAG_MAP: Record<string, string> = {
   "general use": "通用场景",
 }
 
-let toolEmbeddingCachePromise: Promise<ToolEmbeddingItem[]> | null = null
-
 function resolveToolLink(toolName: string): string {
   const trimmedName = toolName.trim()
   const normalized = trimmedName.toLowerCase()
@@ -324,86 +249,40 @@ function resolveToolLink(toolName: string): string {
   return `https://www.google.com/search?q=${encodeURIComponent(trimmedName)}`
 }
 
-function buildToolEmbeddingText(tool: ToolDatasetItem): string {
-  return [
-    tool.description,
-    `tags: ${tool.tags.join(", ")}`,
-    `use_cases: ${tool.use_cases.join(", ")}`,
-    `target_users: ${tool.target_users.join(", ")}`,
-  ].join("\n")
-}
-
-async function createEmbedding(input: string): Promise<number[]> {
-  const zhipuApiKey = process.env.ZHIPU_API_KEY
-  if (zhipuApiKey) {
-    const response = await fetch(ZHIPU_EMBEDDING_API_URL, {
-      method: "POST",
-      signal: AbortSignal.timeout(ZHIPU_API_TIMEOUT_MS),
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${zhipuApiKey}`,
-      },
-      body: JSON.stringify({
-        model: ZHIPU_EMBEDDING_MODEL,
-        input,
-      }),
-    })
-    if (response.ok) {
-      const data = (await response.json()) as ZhipuEmbeddingResponse
-      const embedding = data.data?.[0]?.embedding
-      if (Array.isArray(embedding) && embedding.length > 0) {
-        return embedding
-      }
-    } else {
-      const errorText = await response.text()
-      console.error(`Zhipu embedding request failed: ${response.status} ${errorText}`)
-    }
-  }
-
-  const openaiApiKey = process.env.OPENAI_API_KEY
-  if (!openaiApiKey) {
-    throw new Error("No embedding API key configured")
-  }
-
-  const openaiResponse = await fetch(OPENAI_EMBEDDING_API_URL, {
-    method: "POST",
-    signal: AbortSignal.timeout(ZHIPU_API_TIMEOUT_MS),
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${openaiApiKey}`,
-    },
-    body: JSON.stringify({
-      model: OPENAI_EMBEDDING_MODEL,
-      input,
-    }),
-  })
-  if (!openaiResponse.ok) {
-    const errorText = await openaiResponse.text()
-    throw new Error(`OpenAI embedding request failed: ${openaiResponse.status} ${errorText}`)
-  }
-  const openaiData = (await openaiResponse.json()) as OpenAIEmbeddingResponse
-  const openaiEmbedding = openaiData.data?.[0]?.embedding
-  if (!Array.isArray(openaiEmbedding) || openaiEmbedding.length === 0) {
-    throw new Error("Empty embedding from OpenAI")
-  }
-  return openaiEmbedding
-}
-
 async function getToolEmbeddings(): Promise<ToolEmbeddingItem[]> {
-  if (!toolEmbeddingCachePromise) {
-    toolEmbeddingCachePromise = Promise.all(
-      TOOL_DATASET.map(async (tool) => ({
-        tool,
-        embedding: await createEmbedding(buildToolEmbeddingText(tool)),
-      })),
-    )
+  const rows = await prisma.toolEmbedding.findMany({
+    where: {
+      tool: { status: "active" },
+    },
+    include: {
+      tool: true,
+    },
+    orderBy: { updatedAt: "desc" },
+  })
+
+  const modelCounts = new Map<string, number>()
+  for (const row of rows) {
+    modelCounts.set(row.model, (modelCounts.get(row.model) ?? 0) + 1)
   }
-  try {
-    return await toolEmbeddingCachePromise
-  } catch (error) {
-    toolEmbeddingCachePromise = null
-    throw error
-  }
+  const selectedModel = [...modelCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
+
+  return rows
+    .filter((row) => row.model === selectedModel)
+    .filter((row) => Array.isArray(row.vector) && row.vector.length > 0)
+    .map((row) => ({
+      tool: {
+        id: row.tool.id,
+        name: row.tool.name,
+        description: row.tool.desc,
+        tags: row.tool.tags,
+        use_cases: row.tool.useCases,
+        target_users: row.tool.targetUsers,
+        link: row.tool.link,
+        status: row.tool.status,
+        updated_at: row.tool.updatedAt.toISOString(),
+      },
+      embedding: row.vector,
+    }))
 }
 
 function topToolsByCosineSimilarity(queryEmbedding: number[], toolEmbeddings: ToolEmbeddingItem[], limit = 3): ToolDatasetItem[] {
@@ -473,7 +352,7 @@ async function buildUserProfileEmbedding(
     if (event.type === "search") {
       const keyword = event.keyword?.trim()
       if (!keyword) continue
-      vectors.push({ embedding: await createEmbedding(keyword), weight: finalWeight })
+      vectors.push({ embedding: await createEmbeddingWithDegrade(keyword), weight: finalWeight })
       continue
     }
 
@@ -1016,7 +895,19 @@ export async function POST(request: Request) {
     const userId = session?.user?.id?.trim()
     const behaviorEvents = userId ? await getAuthenticatedUserBehavior(userId) : getAnonymousBehaviorFromBody(body?.localBehavior)
     const userBehavior: UserBehaviorPayload = { events: behaviorEvents }
-    const [queryEmbedding, toolEmbeddings] = await Promise.all([createEmbedding(safeQuery), getToolEmbeddings()])
+    const [queryEmbedding, toolEmbeddings] = await Promise.all([createEmbeddingWithDegrade(safeQuery), getToolEmbeddings()])
+
+    if (toolEmbeddings.length === 0) {
+      const tools = await getActiveTools()
+      return NextResponse.json(
+        normalizeRecommendations(
+          tools.slice(0, 3).map((tool) => toRecommendItem(tool, safeQuery, locale)),
+          safeQuery,
+          locale,
+        ).slice(0, 3),
+      )
+    }
+
     const topTools = topToolsByCosineSimilarity(queryEmbedding, toolEmbeddings, 3)
 
     if (userBehavior.events.length >= MIN_BEHAVIOR_EVENTS_FOR_PERSONALIZATION) {
