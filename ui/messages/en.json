@@ -69,6 +69,14 @@
     "resultsTitle": "Results",
     "resultsCount": "({count})",
     "resultsSubtitle": "Returned for this search",
+    "pagination": {
+      "navAria": "Results pagination",
+      "previous": "Previous",
+      "next": "Next",
+      "previousAria": "Go to previous page",
+      "nextAria": "Go to next page",
+      "pageAria": "Go to page {page}"
+    },
     "queryFallback": "query",
     "noResults": "No results for this search",
     "emptyHint": "Try: make PPT, write copy, draw, write code...",
