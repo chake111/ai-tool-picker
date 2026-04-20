@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
 type TrackPayload = {
-  event: "search" | "favorite" | "click" | "exposure"
+  event: "search" | "favorite" | "click" | "exposure" | "impression"
   anonymousId: string
   timestamp: number
   page?: string
@@ -15,7 +15,7 @@ type TrackPayload = {
   metadata?: Record<string, unknown>
 }
 
-const VALID_EVENTS = new Set<TrackPayload["event"]>(["search", "favorite", "click", "exposure"])
+const VALID_EVENTS = new Set<TrackPayload["event"]>(["search", "favorite", "click", "exposure", "impression"])
 
 function isValidPayload(payload: unknown): payload is TrackPayload {
   if (!payload || typeof payload !== "object") return false
@@ -37,7 +37,7 @@ function isValidPayload(payload: unknown): payload is TrackPayload {
   if (candidate.event === "click") {
     return typeof candidate.toolId === "string" && candidate.toolId.trim().length > 0
   }
-  if (candidate.event === "exposure") {
+  if (candidate.event === "exposure" || candidate.event === "impression") {
     return typeof candidate.toolId === "string" && candidate.toolId.trim().length > 0
   }
   return false
@@ -62,13 +62,16 @@ export async function POST(request: Request) {
   console.info("[track] auth_state", { isAuthenticated: Boolean(userId) })
 
   const eventRecord = {
-    action: payload.event,
+    action: payload.event === "exposure" ? "impression" : payload.event,
     toolId: payload.toolId ?? null,
     keyword: payload.keyword ?? null,
     metadata:
       payload.event === "favorite"
-        ? { operation: payload.operation }
-        : payload.event === "exposure" || payload.event === "click"
+        ? {
+            operation: payload.operation,
+            ...(payload.metadata && typeof payload.metadata === "object" ? payload.metadata : {}),
+          }
+        : payload.event === "exposure" || payload.event === "impression" || payload.event === "click"
           ? (payload.metadata as Prisma.InputJsonValue | undefined)
           : undefined,
     userId,

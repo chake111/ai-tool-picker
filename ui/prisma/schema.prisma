@@ -12,6 +12,7 @@ enum UserEventAction {
   favorite
   click
   exposure
+  impression
 }
 
 enum ToolStatus {

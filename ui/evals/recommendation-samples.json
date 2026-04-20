@@ -1,0 +1,30 @@
+[
+  {
+    "id": "ppt-zh-001",
+    "locale": "zh",
+    "query": "我要做融资路演PPT",
+    "expectedTools": ["Gamma", "Tome", "Beautiful.ai"],
+    "expectedTags": ["办公用户", "内容创作者"]
+  },
+  {
+    "id": "coding-zh-001",
+    "locale": "zh",
+    "query": "帮我写一个 Node.js 接口并补测试",
+    "expectedTools": ["GitHub Copilot", "ChatGPT"],
+    "expectedTags": ["开发者", "专业用户"]
+  },
+  {
+    "id": "writing-en-001",
+    "locale": "en",
+    "query": "Summarize meeting notes and rewrite follow-up emails",
+    "expectedTools": ["Notion AI", "ChatGPT"],
+    "expectedTags": ["办公用户", "团队协作"]
+  },
+  {
+    "id": "design-zh-001",
+    "locale": "zh",
+    "query": "需要一张海报概念图",
+    "expectedTools": ["Midjourney", "ChatGPT"],
+    "expectedTags": ["设计师", "内容创作者"]
+  }
+]

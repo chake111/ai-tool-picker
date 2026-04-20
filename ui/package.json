@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "eval:recommend": "node scripts/run-recommend-regression.mjs",
     "postinstall": "prisma generate",
     "tools:sync": "node scripts/sync-tools.mjs",
     "tools:embed": "node scripts/rebuild-tool-embeddings.mjs"
