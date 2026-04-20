@@ -36,11 +36,17 @@
       "reuse": "点击复用",
       "deleteOne": "删除历史：{query}"
     },
-    "categories": {
-      "code": "写代码",
-      "ppt": "做PPT",
-      "draw": "画图",
-      "write": "写作"
+    "quickScenes": {
+      "items": {
+        "code": "写代码",
+        "ppt": "做PPT",
+        "draw": "画图",
+        "write": "写作",
+        "video": "视频制作",
+        "analysis": "数据分析",
+        "speech": "语音处理",
+        "translation": "翻译"
+      }
     },
     "loading": "正在为你寻找最佳工具...",
     "resultsTitle": "推荐结果",

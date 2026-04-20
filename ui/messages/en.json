@@ -37,11 +37,17 @@
       "reuse": "Reuse",
       "deleteOne": "Delete history: {query}"
     },
-    "categories": {
-      "code": "Write code",
-      "ppt": "Make PPT",
-      "draw": "Draw",
-      "write": "Write"
+    "quickScenes": {
+      "items": {
+        "code": "Write code",
+        "ppt": "Make PPT",
+        "draw": "Draw",
+        "write": "Write",
+        "video": "Video creation",
+        "analysis": "Data analysis",
+        "speech": "Speech processing",
+        "translation": "Translation"
+      }
     },
     "loading": "Finding the best tools for you...",
     "resultsTitle": "Results",
