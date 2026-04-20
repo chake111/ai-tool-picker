@@ -94,3 +94,19 @@ export async function track(payload: TrackInput) {
     throw new Error(`Track request failed for ${requestPayload.event}: ${response.status}`)
   }
 }
+
+export function trackSearch(keyword: string) {
+  return track({ action: "search", keyword })
+}
+
+export function trackFavorite(toolId: string, operation: FavoriteOperation, metadata?: Record<string, unknown>) {
+  return track({ action: "favorite", toolId, operation, metadata })
+}
+
+export function trackCompare(toolId: string, metadata?: Record<string, unknown>) {
+  return track({ action: "click", toolId, metadata: { entry: "compare", ...metadata } })
+}
+
+export function trackDetailView(toolId: string, metadata?: Record<string, unknown>) {
+  return track({ action: "impression", toolId, metadata: { entry: "detail_view", ...metadata } })
+}

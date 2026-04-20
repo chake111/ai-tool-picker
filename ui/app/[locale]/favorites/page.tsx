@@ -1,12 +1,12 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { FavoritesList } from "@/components/favorites/favorites-list"
 import { FavoritesToolbar } from "@/components/favorites/favorites-toolbar"
-import { sanitizeFavoriteItem, type FavoriteItem } from "@/lib/favorites-store"
-
-const FAVORITES_STORAGE_KEY = "ai_tool_picker_favorites"
+import { useFavorites } from "@/hooks/use-favorites"
+import type { FavoriteItem } from "@/lib/favorites-store"
+import { trackFavorite } from "@/lib/track"
 
 type SortMode = "name" | "ai" | "scenario"
 
@@ -21,18 +21,8 @@ const getFavoriteAiScore = (tool: FavoriteItem) => {
 export default function FavoritesPage() {
   const t = useTranslations()
   const locale = useLocale()
-  const [favorites, setFavorites] = useState<FavoriteItem[]>([])
+  const { favorites, removeFavorite } = useFavorites()
   const [sortMode, setSortMode] = useState<SortMode>("name")
-
-  useEffect(() => {
-    try {
-      const parsed = JSON.parse(localStorage.getItem(FAVORITES_STORAGE_KEY) ?? "[]")
-      if (!Array.isArray(parsed)) return
-      setFavorites(parsed.map((item) => sanitizeFavoriteItem(item)).filter((item): item is FavoriteItem => Boolean(item)))
-    } catch {
-      setFavorites([])
-    }
-  }, [])
 
   const sortedFavorites = useMemo(() => {
     const next = [...favorites]
@@ -43,14 +33,6 @@ export default function FavoritesPage() {
     })
     return next
   }, [favorites, locale, sortMode])
-
-  const removeFavorite = (name: string) => {
-    setFavorites((prev) => {
-      const next = prev.filter((item) => item.name !== name)
-      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(next))
-      return next
-    })
-  }
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-8 sm:px-6 lg:px-8">
@@ -72,7 +54,10 @@ export default function FavoritesPage() {
         visitLabel={t("common.visitWebsite")}
         noWebsiteLabel={t("common.noWebsite")}
         getRemoveLabel={(name) => t("favorites.removeOne", { name })}
-        onRemove={removeFavorite}
+        onRemove={(name) => {
+          removeFavorite(name)
+          void trackFavorite(name, "remove", { source: "favorites_page" })
+        }}
       />
     </main>
   )
