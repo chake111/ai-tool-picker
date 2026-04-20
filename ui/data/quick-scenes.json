@@ -1,0 +1,58 @@
+[
+  {
+    "id": "code",
+    "icon": "code",
+    "presetQuery": "写代码",
+    "languageKey": "home.quickScenes.items.code",
+    "order": 10
+  },
+  {
+    "id": "ppt",
+    "icon": "presentation",
+    "presetQuery": "做PPT",
+    "languageKey": "home.quickScenes.items.ppt",
+    "order": 20
+  },
+  {
+    "id": "draw",
+    "icon": "image",
+    "presetQuery": "画图",
+    "languageKey": "home.quickScenes.items.draw",
+    "order": 30
+  },
+  {
+    "id": "write",
+    "icon": "pen",
+    "presetQuery": "写作",
+    "languageKey": "home.quickScenes.items.write",
+    "order": 40
+  },
+  {
+    "id": "video",
+    "icon": "video",
+    "presetQuery": "视频制作",
+    "languageKey": "home.quickScenes.items.video",
+    "order": 50
+  },
+  {
+    "id": "analysis",
+    "icon": "chart",
+    "presetQuery": "数据分析",
+    "languageKey": "home.quickScenes.items.analysis",
+    "order": 60
+  },
+  {
+    "id": "speech",
+    "icon": "audio",
+    "presetQuery": "语音处理",
+    "languageKey": "home.quickScenes.items.speech",
+    "order": 70
+  },
+  {
+    "id": "translation",
+    "icon": "languages",
+    "presetQuery": "翻译",
+    "languageKey": "home.quickScenes.items.translation",
+    "order": 80
+  }
+]
