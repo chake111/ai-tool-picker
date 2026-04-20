@@ -46,7 +46,12 @@
       "clear": "Clear history",
       "empty": "No history yet, try entering a need",
       "reuse": "Reuse",
-      "deleteOne": "Delete history: {query}"
+      "deleteOne": "Delete history: {query}",
+      "pagination": {
+        "prev": "Previous",
+        "next": "Next",
+        "page": "Page {current} / {total}"
+      }
     },
     "quickScenes": {
       "items": {
