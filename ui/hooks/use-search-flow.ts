@@ -27,9 +27,14 @@ export type DisplayItem = RecommendItem & {
   limitations: string[]
 }
 
+type SearchContext = {
+  query: string
+  requestId: string
+}
+
 type UseSearchFlowOptions = {
   locale: string
-  onSearchSuccess?: (query: string) => void
+  onSearchSuccess?: (context: SearchContext) => void
 }
 
 const inferPricingType = (item: RecommendItem): PricingType => {
@@ -58,6 +63,24 @@ const normalizeConfidenceScore = (item: RecommendItem) => {
   return 0.72
 }
 
+function createRequestId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID()
+  }
+  return `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+export function filterItems(items: DisplayItem[], filter: FilterOption) {
+  return items.filter((item) => {
+    if (filter === "all") return true
+    if (filter === "free") return item.pricingType === "free"
+    if (filter === "paid") return item.pricingType === "paid"
+    if (filter === "beginner") return item.skillLevel === "beginner"
+    if (filter === "pro") return item.skillLevel === "pro"
+    return item.chineseSupport
+  })
+}
+
 export function useSearchFlow({ locale, onSearchSuccess }: UseSearchFlowOptions) {
   const [query, setQuery] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -66,6 +89,7 @@ export function useSearchFlow({ locale, onSearchSuccess }: UseSearchFlowOptions)
   const [currentPage, setCurrentPage] = useState(1)
   const [filters, setFilters] = useState<FilterOption>("all")
   const [sortBy, setSortBy] = useState<SortOption>("confidence")
+  const [requestId, setRequestId] = useState("")
 
   const setFilterAndResetPage = useCallback((option: FilterOption) => {
     setFilters(option)
@@ -122,9 +146,12 @@ export function useSearchFlow({ locale, onSearchSuccess }: UseSearchFlowOptions)
             limitations: Array.isArray(item.limitations) ? item.limitations : [],
           }
         })
+        const nextRequestId = createRequestId()
+        setQuery(trimmed)
+        setRequestId(nextRequestId)
         setResults(normalized)
         setCurrentPage(1)
-        onSearchSuccess?.(trimmed)
+        onSearchSuccess?.({ query: trimmed, requestId: nextRequestId })
       } catch {
         setError(recommendationFailed)
       } finally {
@@ -134,16 +161,7 @@ export function useSearchFlow({ locale, onSearchSuccess }: UseSearchFlowOptions)
     [locale, onSearchSuccess],
   )
 
-  const filteredResults = useMemo(() => {
-    return results.filter((item) => {
-      if (filters === "all") return true
-      if (filters === "free") return item.pricingType === "free"
-      if (filters === "paid") return item.pricingType === "paid"
-      if (filters === "beginner") return item.skillLevel === "beginner"
-      if (filters === "pro") return item.skillLevel === "pro"
-      return item.chineseSupport
-    })
-  }, [filters, results])
+  const filteredResults = useMemo(() => filterItems(results, filters), [filters, results])
 
   const sortedResults = useMemo(() => {
     const copy = [...filteredResults]
@@ -169,6 +187,7 @@ export function useSearchFlow({ locale, onSearchSuccess }: UseSearchFlowOptions)
     isLoading,
     error,
     results,
+    requestId,
     filters,
     setFilterAndResetPage,
     sortBy,

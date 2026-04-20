@@ -28,9 +28,9 @@ export default function HomePage() {
   const history = useHistory()
   const searchFlow = useSearchFlow({
     locale,
-    onSearchSuccess: (query) => {
+    onSearchSuccess: ({ query, requestId }) => {
       history.addEntry(query)
-      void trackSearch(query)
+      void trackSearch(query, { entry: "home_page", locale, request_id: requestId })
       router.push(`/${locale}/results?query=${encodeURIComponent(query)}&locale=${encodeURIComponent(locale)}`)
     },
   })

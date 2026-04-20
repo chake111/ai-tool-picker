@@ -1,4 +1,6 @@
+import { FormEvent } from "react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 
 type ResultsToolbarProps<TFilter extends string, TSort extends string> = {
   filterOptions: readonly TFilter[]
@@ -11,6 +13,12 @@ type ResultsToolbarProps<TFilter extends string, TSort extends string> = {
   getSortLabel: (sort: TSort) => string
   clearLabel: string
   onClear: () => void
+  refineQuery?: string
+  onRefineQueryChange?: (value: string) => void
+  refineInputLabel?: string
+  refineInputPlaceholder?: string
+  refineSubmitLabel?: string
+  onRefineSubmit?: () => void
 }
 
 export function ResultsToolbar<TFilter extends string, TSort extends string>({
@@ -24,9 +32,34 @@ export function ResultsToolbar<TFilter extends string, TSort extends string>({
   getSortLabel,
   clearLabel,
   onClear,
+  refineQuery,
+  onRefineQueryChange,
+  refineInputLabel,
+  refineInputPlaceholder,
+  refineSubmitLabel,
+  onRefineSubmit,
 }: ResultsToolbarProps<TFilter, TSort>) {
+  const handleRefineSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    onRefineSubmit?.()
+  }
+
   return (
     <div className="app-toolbar justify-end" aria-label="results-toolbar">
+      {typeof refineQuery === "string" && onRefineQueryChange && onRefineSubmit && refineInputLabel && refineSubmitLabel && (
+        <form className="flex w-full max-w-xl items-center gap-2" onSubmit={handleRefineSubmit}>
+          <Input
+            value={refineQuery}
+            onChange={(event) => onRefineQueryChange(event.target.value)}
+            aria-label={refineInputLabel}
+            placeholder={refineInputPlaceholder}
+          />
+          <Button size="sm" type="submit" className="rounded-xl">
+            {refineSubmitLabel}
+          </Button>
+        </form>
+      )}
+
       <div className="flex flex-wrap gap-2">
         {filterOptions.map((option) => (
           <Button

@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation"
 import { toast } from "@/hooks/use-toast"
 import { HomeCompareEntry } from "@/components/home/home-compare-entry"
 import { ResultsList } from "@/components/results/results-list"
-import { FILTER_OPTIONS, SORT_OPTIONS, useSearchFlow, type DisplayItem } from "@/hooks/use-search-flow"
+import { FILTER_OPTIONS, SORT_OPTIONS, filterItems, useSearchFlow, type DisplayItem, type FilterOption } from "@/hooks/use-search-flow"
 import { useFavorites } from "@/hooks/use-favorites"
 import { useHistory } from "@/hooks/use-history"
 import { track, trackCompare, trackFavorite, trackSearch } from "@/lib/track"
@@ -23,6 +23,7 @@ export default function ResultsPage() {
   const searchParams = useSearchParams()
   const [compareTools, setCompareTools] = useState<DisplayItem[]>([])
   const [actionFeedbackMap, setActionFeedbackMap] = useState<ActionFeedbackMap>({})
+  const [refineQuery, setRefineQuery] = useState("")
   const initialQuery = searchParams.get("query")?.trim() ?? ""
   const lastSearched = useRef("")
 
@@ -30,9 +31,14 @@ export default function ResultsPage() {
   const { favorites, setFavorites } = useFavorites()
   const searchFlow = useSearchFlow({
     locale,
-    onSearchSuccess: (query) => {
+    onSearchSuccess: ({ query, requestId }) => {
       history.addEntry(query)
-      void trackSearch(query)
+      setRefineQuery(query)
+      void trackSearch(query, {
+        entry: "results_page",
+        locale,
+        request_id: requestId,
+      })
     },
   })
 
@@ -58,9 +64,52 @@ export default function ResultsPage() {
   useEffect(() => {
     if (!initialQuery || lastSearched.current === initialQuery) return
     lastSearched.current = initialQuery
-    searchFlow.setQuery(initialQuery)
+    setRefineQuery(initialQuery)
     void searchFlow.search(initialQuery, t("home.searchEmptyPrompt"), t("errors.recommendationFailed"))
   }, [initialQuery, searchFlow, t])
+
+  const onFilterSelect = (option: FilterOption) => {
+    const beforeCount = searchFlow.filteredResults.length
+    const afterCount = filterItems(searchFlow.results, option).length
+    searchFlow.setFilterAndResetPage(option)
+    void track({
+      action: "click",
+      toolId: `filter:${option}`,
+      metadata: {
+        action: "filter_apply",
+        locale,
+        query: searchFlow.query,
+        request_id: searchFlow.requestId,
+        filter_key: "preset",
+        filter_value: option,
+        result_count_before: beforeCount,
+        result_count_after: afterCount,
+      },
+    })
+  }
+
+  const onRefineSubmit = () => {
+    const trimmed = refineQuery.trim()
+    if (!trimmed) {
+      toast({ description: t("home.searchEmptyPrompt") })
+      return
+    }
+
+    void searchFlow.search(trimmed, t("home.searchEmptyPrompt"), t("errors.recommendationFailed"))
+    void track({
+      action: "click",
+      toolId: "refine",
+      metadata: {
+        action: "refine_submit",
+        locale,
+        query: searchFlow.query,
+        refine_query: trimmed,
+        request_id: searchFlow.requestId,
+        active_filter: searchFlow.filters,
+        active_sort: searchFlow.sortBy,
+      },
+    })
+  }
 
   const toggleCompare = (tool: DisplayItem) => {
     setCompareTools((prev) => {
@@ -69,7 +118,7 @@ export default function ResultsPage() {
       if (!exists && next.length > prev.length) {
         touchActionFeedback(tool.name, "compare")
         toast({ description: locale === "zh" ? "已加入对比" : "Added to compare" })
-        void trackCompare(tool.name, { source: "results_page" })
+        void trackCompare(tool.name, { source: "results_page", request_id: searchFlow.requestId, query: searchFlow.query, locale })
       }
       return next
     })
@@ -93,13 +142,23 @@ export default function ResultsPage() {
     setFavorites(nextFavorites)
     touchActionFeedback(tool.name, "favorite")
     toast({ description: locale === "zh" ? (exists ? "已取消收藏" : "已加入收藏") : exists ? "Removed from favorites" : "Added to favorites" })
-    void trackFavorite(tool.name, exists ? "remove" : "add", { source: "results_page" })
+    void trackFavorite(tool.name, exists ? "remove" : "add", { source: "results_page", request_id: searchFlow.requestId, query: searchFlow.query, locale })
   }
 
   const visitWebsite = (tool: DisplayItem) => {
     touchActionFeedback(tool.name, "visit")
     toast({ description: locale === "zh" ? "已打开官网" : "Website opened" })
-    void track({ action: "click", toolId: tool.name, metadata: { source: "results_page", target: "official_site" } })
+    void track({
+      action: "click",
+      toolId: tool.name,
+      metadata: {
+        source: "results_page",
+        target: "official_site",
+        request_id: searchFlow.requestId,
+        query: searchFlow.query,
+        locale,
+      },
+    })
     window.open(tool.link, "_blank", "noopener,noreferrer")
   }
 
@@ -111,7 +170,9 @@ export default function ResultsPage() {
 
       <ResultsList
         title={t("home.resultsTitle")}
-        emptyHint={t("home.emptyHint")}
+        emptyHint={t("resultsStates.empty")}
+        noMatchHint={t("resultsStates.noMatch")}
+        loadingHint={t("resultsStates.loading")}
         isLoading={searchFlow.isLoading}
         results={searchFlow.results}
         pagedResults={searchFlow.pagedResults}
@@ -119,7 +180,7 @@ export default function ResultsPage() {
         favorites={favorites.map((item) => item.name)}
         filters={searchFlow.filters}
         filterOptions={FILTER_OPTIONS}
-        onFilterSelect={searchFlow.setFilterAndResetPage}
+        onFilterSelect={onFilterSelect}
         getFilterLabel={(option) => t(`filters.options.${option}`)}
         sortBy={searchFlow.sortBy}
         sortOptions={SORT_OPTIONS}
@@ -127,6 +188,12 @@ export default function ResultsPage() {
         getSortLabel={(option) => t(`resultsToolbar.sort.${option}`)}
         clearConditionsLabel={t("resultsToolbar.clear")}
         onClearConditions={searchFlow.clearConditions}
+        refineQuery={refineQuery}
+        onRefineQueryChange={setRefineQuery}
+        refineInputLabel={t("resultsToolbar.refineInputLabel")}
+        refineInputPlaceholder={t("resultsToolbar.refineInputPlaceholder")}
+        refineSubmitLabel={t("resultsToolbar.refineSubmit")}
+        onRefineSubmit={onRefineSubmit}
         onToggleCompare={toggleCompare}
         onToggleFavorite={toggleFavorite}
         onVisitWebsite={visitWebsite}

@@ -71,7 +71,7 @@ export async function POST(request: Request) {
             operation: payload.operation,
             ...(payload.metadata && typeof payload.metadata === "object" ? payload.metadata : {}),
           }
-        : payload.event === "exposure" || payload.event === "impression" || payload.event === "click"
+        : payload.event === "search" || payload.event === "exposure" || payload.event === "impression" || payload.event === "click"
           ? (payload.metadata as Prisma.InputJsonValue | undefined)
           : undefined,
     userId,

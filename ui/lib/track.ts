@@ -16,6 +16,7 @@ export type TrackInput =
   | {
       action: "search"
       keyword: string
+      metadata?: Record<string, unknown>
     }
   | {
       action: "favorite"
@@ -67,13 +68,7 @@ export async function track(payload: TrackInput) {
     toolId: "toolId" in payload ? payload.toolId : undefined,
     keyword: payload.action === "search" ? payload.keyword : undefined,
     operation: payload.action === "favorite" ? payload.operation : undefined,
-    metadata:
-      payload.action === "exposure" ||
-      payload.action === "impression" ||
-      payload.action === "click" ||
-      payload.action === "favorite"
-        ? payload.metadata
-        : undefined,
+    metadata: payload.metadata,
     anonymousId: getAnonymousId(),
     page: typeof window !== "undefined" ? window.location.pathname : "/",
     timestamp: Date.now(),
@@ -95,8 +90,8 @@ export async function track(payload: TrackInput) {
   }
 }
 
-export function trackSearch(keyword: string) {
-  return track({ action: "search", keyword })
+export function trackSearch(keyword: string, metadata?: Record<string, unknown>) {
+  return track({ action: "search", keyword, metadata })
 }
 
 export function trackFavorite(toolId: string, operation: FavoriteOperation, metadata?: Record<string, unknown>) {

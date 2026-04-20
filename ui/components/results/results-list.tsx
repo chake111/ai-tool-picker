@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { HistoryPagination } from "@/components/history/history-pagination"
 import { ResultsToolbar } from "@/components/results/results-toolbar"
-import { Check, Heart, Star } from "lucide-react"
+import { Check, Heart, LoaderCircle, Star } from "lucide-react"
 import type { DisplayItem } from "@/hooks/use-search-flow"
 
 type ActionFeedbackState = "idle" | "done"
@@ -11,6 +11,8 @@ type ActionFeedbackState = "idle" | "done"
 type ResultsListProps<TFilter extends string, TSort extends string> = {
   title: string
   emptyHint: string
+  noMatchHint: string
+  loadingHint: string
   isLoading: boolean
   results: DisplayItem[]
   pagedResults: DisplayItem[]
@@ -26,6 +28,12 @@ type ResultsListProps<TFilter extends string, TSort extends string> = {
   getSortLabel: (option: TSort) => string
   clearConditionsLabel: string
   onClearConditions: () => void
+  refineQuery?: string
+  onRefineQueryChange?: (value: string) => void
+  refineInputLabel?: string
+  refineInputPlaceholder?: string
+  refineSubmitLabel?: string
+  onRefineSubmit?: () => void
   onToggleCompare: (tool: DisplayItem) => void
   onToggleFavorite: (tool: DisplayItem) => void
   onVisitWebsite: (tool: DisplayItem) => void
@@ -51,6 +59,8 @@ const ratingFromName = (name: string) => (4.3 + ((name.length % 6) * 0.1)).toFix
 export function ResultsList<TFilter extends string, TSort extends string>({
   title,
   emptyHint,
+  noMatchHint,
+  loadingHint,
   isLoading,
   results,
   pagedResults,
@@ -66,6 +76,12 @@ export function ResultsList<TFilter extends string, TSort extends string>({
   getSortLabel,
   clearConditionsLabel,
   onClearConditions,
+  refineQuery,
+  onRefineQueryChange,
+  refineInputLabel,
+  refineInputPlaceholder,
+  refineSubmitLabel,
+  onRefineSubmit,
   onToggleCompare,
   onToggleFavorite,
   onVisitWebsite,
@@ -85,6 +101,9 @@ export function ResultsList<TFilter extends string, TSort extends string>({
   onPreviousPage,
   onNextPage,
 }: ResultsListProps<TFilter, TSort>) {
+  const isEmptyResults = !isLoading && results.length === 0
+  const isNoMatch = !isLoading && results.length > 0 && pagedResults.length === 0
+
   return (
     <section className="space-y-4">
       <div className="app-toolbar">
@@ -100,11 +119,26 @@ export function ResultsList<TFilter extends string, TSort extends string>({
           getSortLabel={getSortLabel}
           clearLabel={clearConditionsLabel}
           onClear={onClearConditions}
+          refineQuery={refineQuery}
+          onRefineQueryChange={onRefineQueryChange}
+          refineInputLabel={refineInputLabel}
+          refineInputPlaceholder={refineInputPlaceholder}
+          refineSubmitLabel={refineSubmitLabel}
+          onRefineSubmit={onRefineSubmit}
         />
       </div>
 
-      {results.length === 0 && !isLoading ? (
+      {isLoading ? (
+        <Card className="app-panel p-5 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <LoaderCircle className="h-4 w-4 animate-spin" />
+            <span>{loadingHint}</span>
+          </div>
+        </Card>
+      ) : isEmptyResults ? (
         <Card className="app-panel border-dashed p-5 text-sm text-muted-foreground">{emptyHint}</Card>
+      ) : isNoMatch ? (
+        <Card className="app-panel border-dashed p-5 text-sm text-muted-foreground">{noMatchHint}</Card>
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
