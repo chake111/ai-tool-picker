@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Heart, RotateCcw, Search, Trash2 } from "lucide-react"
+import { AudioWaveform, BarChart3, Code2, Heart, Image, Languages, PenTool, Presentation, RotateCcw, Search, Trash2, Video } from "lucide-react"
 import { signIn, signOut, useSession } from "next-auth/react"
 import { useLocale, useTranslations } from "next-intl"
 import { SearchInput } from "@/components/search-input"
@@ -53,6 +53,7 @@ const QUICK_SCENE_ICON_MAP: Record<QuickSceneConfig["icon"], typeof Code2> = {
 
 const HISTORY_STORAGE_KEY = "ai_tool_picker_history"
 const FAVORITES_STORAGE_KEY = "ai_tool_picker_favorites"
+const ONBOARDING_STORAGE_KEY = "ai_tool_picker_has_seen_onboarding"
 const HISTORY_LIMIT = 10
 const FAVORITES_LIMIT = 30
 const MAX_COMPARE_TOOLS = 3
@@ -119,6 +120,10 @@ export default function Home() {
     chinese: false,
   })
   const [favoriteAnimatingTool, setFavoriteAnimatingTool] = useState("")
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [onboardingReady, setOnboardingReady] = useState(false)
+  const [searchInputFocusSignal, setSearchInputFocusSignal] = useState(0)
+  const [postOnboardingExample, setPostOnboardingExample] = useState("")
   const currentHistoryLocale: SearchHistoryItem["locale"] = locale === "zh" ? "zh" : "en"
   const localizedHistory = useMemo(
     () => history.filter((item) => !item.locale || item.locale === currentHistoryLocale),
@@ -204,6 +209,17 @@ export default function Home() {
       setHistory(sanitized)
     } catch {
       setHistory([])
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      const hasSeenOnboarding = localStorage.getItem(ONBOARDING_STORAGE_KEY) === "true"
+      setShowOnboarding(!hasSeenOnboarding)
+    } catch {
+      setShowOnboarding(true)
+    } finally {
+      setOnboardingReady(true)
     }
   }, [])
 
@@ -555,6 +571,22 @@ export default function Home() {
     clearCompareLimitHint()
   }
 
+  const finishOnboarding = (prefillQuery: boolean) => {
+    const highlightedExample = t("home.onboarding.highQualityExample")
+    try {
+      localStorage.setItem(ONBOARDING_STORAGE_KEY, "true")
+    } catch {}
+    setShowOnboarding(false)
+    setPostOnboardingExample(highlightedExample)
+    if (prefillQuery) {
+      setQuery(highlightedExample)
+      setSelectedQuickScene(getMatchedQuickSceneId(highlightedExample))
+    }
+    setTimeout(() => {
+      setSearchInputFocusSignal((prev) => prev + 1)
+    }, 50)
+  }
+
   return (
     <main
       className={cn("min-h-screen flex flex-col items-center justify-center px-4 py-16", MAIN_COMPARE_PADDING_CLASS)}
@@ -581,6 +613,35 @@ export default function Home() {
             </Button>
           )}
         </div>
+
+        {onboardingReady && showOnboarding && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/85 p-4 backdrop-blur-sm sm:items-center sm:p-6">
+            <div className="w-full max-w-xl rounded-2xl border border-border bg-card p-4 shadow-2xl sm:p-6">
+              <div className="space-y-2">
+                <h2 className="text-lg font-semibold text-foreground sm:text-xl">{t("home.onboarding.title")}</h2>
+                <p className="text-sm text-muted-foreground sm:text-base">{t("home.onboarding.subtitle")}</p>
+              </div>
+              <ul className="mt-4 space-y-3 rounded-xl border border-border/70 bg-muted/30 p-3 text-sm sm:text-base">
+                <li className="rounded-lg bg-background px-3 py-2 text-foreground">{t("home.onboarding.inputWay")}</li>
+                <li className="rounded-lg bg-background px-3 py-2 text-foreground">{t("home.onboarding.useCases")}</li>
+                <li className="rounded-lg bg-background px-3 py-2 text-foreground">{t("home.onboarding.outputFormat")}</li>
+              </ul>
+              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => finishOnboarding(false)}
+                  className="w-full sm:w-auto"
+                >
+                  {t("home.onboarding.skip")}
+                </Button>
+                <Button type="button" onClick={() => finishOnboarding(true)} className="w-full sm:w-auto">
+                  {t("home.onboarding.startNow")}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 标题区域 */}
         {results.length === 0 && (
@@ -643,7 +704,13 @@ export default function Home() {
               t("home.sampleQueries.chinesePolish"),
             ]}
             onSampleQueryClick={handleSampleQueryClick}
+            focusSignal={searchInputFocusSignal}
           />
+          {postOnboardingExample && results.length === 0 && (
+            <p className="rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs leading-relaxed text-foreground sm:text-sm">
+              {t("home.onboarding.exampleLabel", { example: postOnboardingExample })}
+            </p>
+          )}
           {results.length === 0 && (
             <p className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs leading-relaxed text-muted-foreground sm:text-sm">
               {t("home.examples")}

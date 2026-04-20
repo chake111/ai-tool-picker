@@ -19,6 +19,7 @@ interface SearchInputProps {
   sampleQueries?: string[]
   sampleTitle?: string
   onSampleQueryClick?: (query: string) => void
+  focusSignal?: number
 }
 
 export function SearchInput({
@@ -36,6 +37,7 @@ export function SearchInput({
   sampleQueries = [],
   sampleTitle = "",
   onSampleQueryClick,
+  focusSignal = 0,
 }: SearchInputProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [isFocused, setIsFocused] = useState(false)
@@ -54,6 +56,11 @@ export function SearchInput({
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [])
+
+  useEffect(() => {
+    if (focusSignal <= 0) return
+    inputRef.current?.focus()
+  }, [focusSignal])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
